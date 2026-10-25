@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "Ana Esteticista",
+  "short_name": "Ana",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fffaf4",
+  "theme_color": "#ba7184",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

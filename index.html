@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-PT"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ba7184"><meta name="apple-mobile-web-app-capable" content="yes"><title>Ana Esteticista · Marcações</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600&display=swap');
+:root{--paper:#fffaf4;--pink:#ba7184;--dark:#443337;--muted:#89767b;--line:#eddfe0}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--dark);font-family:'DM Sans',sans-serif}button,input{font:inherit}button{cursor:pointer}header{max-width:1160px;margin:auto;padding:26px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.logo{font-family:'Playfair Display',serif;font-size:27px}.logo small{display:block;font:10px 'DM Sans',sans-serif;letter-spacing:4px;text-transform:uppercase;margin-top:4px;color:var(--pink)}.tag{font-size:12px;color:var(--muted)}main{max-width:1160px;margin:auto;padding:45px 28px 60px}.eyebrow{text-transform:uppercase;letter-spacing:3px;font-size:11px;color:var(--pink)}h1{font:500 clamp(34px,5vw,55px)/1.15 'Playfair Display',serif;max-width:650px;margin:14px 0}h1 em{color:var(--pink);font-weight:400}p{line-height:1.7;color:var(--muted)}.intro{display:flex;justify-content:space-between;gap:30px;align-items:center}.flower{width:115px;height:115px;border:1px solid #dbb0bb;border-radius:50%;display:grid;place-items:center;color:var(--pink);font-size:60px;background:#f8e8e8}.notice{font-size:12px;background:#f5e9e9;border-radius:12px;padding:12px 16px;margin:25px 0;color:#79535e}.steps{display:flex;gap:25px;font-size:12px;margin:34px 0;color:var(--muted)}.steps strong{color:var(--pink)}.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:34px;align-items:start}h2{font:500 25px 'Playfair Display',serif;margin:0 0 9px}h3{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:27px}.filters{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}.filter{background:transparent;border:1px solid var(--line);border-radius:25px;padding:9px 15px;color:var(--muted);font-size:12px}.filter.active{background:var(--pink);color:white;border-color:var(--pink)}.services{display:grid;grid-template-columns:1fr 1fr;gap:10px}.service{text-align:left;border:1px solid var(--line);border-radius:14px;background:#fff;padding:17px;display:flex;justify-content:space-between;gap:10px;color:var(--dark);min-height:83px}.service:hover{border-color:var(--pink)}.service[aria-pressed=true]{border-color:var(--pink);background:#faedf0;box-shadow:0 0 0 1px var(--pink)}.service small{display:block;font-size:11px;color:var(--muted);margin-top:7px}.price{font-size:14px;white-space:nowrap;color:var(--pink);font-weight:600}.panel{background:#fff;border:1px solid var(--line);border-radius:20px;padding:25px;position:sticky;top:20px}.panel p{font-size:12px}.summaryrow{display:flex;justify-content:space-between;gap:15px;font-size:13px;padding:15px 0;border-bottom:1px solid var(--line)}.total{font-size:22px;color:var(--pink)}.section{margin-top:35px;padding-top:30px;border-top:1px solid var(--line)}label{display:block;font-size:12px;margin:16px 0 7px}input{border:1px solid var(--line);padding:13px;background:#fff;border-radius:10px;color:var(--dark);max-width:100%;width:100%}.date{max-width:240px}.slots{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.slot{border:1px solid var(--line);background:white;border-radius:9px;padding:10px 14px;color:var(--dark)}.slot[aria-pressed=true]{background:var(--pink);color:#fff}.hint{font-size:12px}.primary{width:100%;border:0;background:var(--pink);color:#fff;padding:14px;border-radius:11px;margin-top:20px}.primary:disabled{opacity:.45;cursor:not-allowed}.hours{font-size:12px;line-height:1.9;color:var(--muted)}footer{text-align:center;font-size:11px;color:var(--muted);padding:25px;border-top:1px solid var(--line)}:focus-visible{outline:3px solid #79535e;outline-offset:3px}[hidden]{display:none!important}@media(max-width:800px){.layout{grid-template-columns:1fr}.panel{position:static}.flower{display:none}main{padding:30px 18px}.services{grid-template-columns:1fr 1fr}header{padding:20px 18px}.tag{max-width:100px;text-align:right}.steps{gap:13px;font-size:11px}}@media(max-width:390px){.services{grid-template-columns:1fr}}
+</style><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><script src="config.js"></script></head><body>
+<header><div class="logo">Ana<small>Esteticista</small></div><span class="tag">Um momento só para si.</span></header>
+<main><div class="intro"><div><span class="eyebrow">Beleza & cuidado</span><h1>Cuide de si.<br><em>O seu tempo começa aqui.</em></h1><p>Escolha o seu cuidado e encontre um momento na agenda da Ana.</p></div><div class="flower" aria-hidden="true">✳</div></div>
+<div class="notice" role="status">Versão de demonstração · Os horários seguem o horário de trabalho da Ana. A agenda online ainda não está ligada e não são enviadas nem guardadas marcações.</div>
+<div class="steps"><strong>01 · Escolher serviço</strong><span>02 · Dia e hora</span><span>03 · Rever pedido</span></div>
+<div class="layout"><div><h2>De que cuidado precisa?</h2><p class="hint">Escolha um serviço para ver os horários compatíveis com a sua duração.</p><div class="filters" id="filters"></div><div class="services" id="services"></div>
+<section class="section"><h2>Um momento na sua agenda</h2><p class="hint">Segunda, terça, quinta e sexta · 09:00–12:00 e 15:00–19:00<br>Sábado · 09:00–13:00 e 15:00–19:00</p><label for="date">Escolha o dia</label><input class="date" id="date" type="date"><p id="slotHint" class="hint" aria-live="polite">Escolha primeiro um serviço e um dia.</p><div class="slots" id="slots"></div></section></div>
+<aside class="panel"><span class="eyebrow">O seu momento</span><h2 style="margin-top:12px">Resumo</h2><div class="summaryrow"><span>Serviço</span><strong id="sumService">Por escolher</strong></div><div class="summaryrow"><span>Duração</span><span id="sumDuration">—</span></div><div class="summaryrow"><span>Dia e hora</span><span id="sumDate">—</span></div><div class="summaryrow"><span>Total</span><strong class="total" id="sumPrice">—</strong></div><section id="bookingForm" hidden><label for="clientEmail">Email para entrar</label><input id="clientEmail" type="email" required autocomplete="email"><button id="loginClient" class="primary">Receber link de entrada</button><p id="loginStatus"></p><label for="customerName">O seu nome</label><input id="customerName" minlength="2" maxlength="100" required autocomplete="name"><label for="customerPhone">Telemóvel</label><input id="customerPhone" type="tel" minlength="6" maxlength="30" required autocomplete="tel"></section><button class="primary" id="review" disabled>Rever seleção</button><p id="result" aria-live="polite">A marcação só poderá ser enviada quando a agenda online estiver ligada.</p><h3>Horário da Ana</h3><div class="hours">Seg · Ter · Qui · Sex<br>09:00–12:00 / 15:00–19:00<br>Sábado<br>09:00–13:00 / 15:00–19:00<br>Encerrado à quarta e ao domingo.</div></aside></div></main><footer>Ana Esteticista · Beleza com tempo para si.</footer>
+<script>
+const services=[
+{id:'verniz',category:'Mãos',name:'Verniz de gel',minutes:60,price:16},
+{id:'gel',category:'Mãos',name:'Gel',minutes:90,price:22},
+{id:'manicure',category:'Mãos',name:'Manicure',minutes:20,price:7.5},
+{id:'pedicure',category:'Pés',name:'Pedicure',minutes:40,price:20},
+{id:'sobrancelhas',category:'Rosto',name:'Sobrancelhas',minutes:10,price:4},
+{id:'buco',category:'Rosto',name:'Buço',minutes:5,price:3.5},
+{id:'pele',category:'Rosto',name:'Limpeza de pele',minutes:90,price:30},
+{id:'cera-pernas',category:'Cera',name:'Perna inteira',minutes:60,price:17},
+{id:'cera-virilhas',category:'Cera',name:'Virilhas',minutes:20,price:10},
+{id:'cera-axilas',category:'Cera',name:'Axilas',minutes:10,price:6.5},
+{id:'laser-pernas',category:'Laser',name:'Perna inteira',minutes:20,price:25},
+{id:'laser-axilas',category:'Laser',name:'Axilas',minutes:10,price:15},
+{id:'laser-bracos',category:'Laser',name:'Braços',minutes:15,price:15},
+{id:'laser-buco',category:'Laser',name:'Buço',minutes:5,price:10},
+{id:'laser-corpo',category:'Laser',name:'Corpo todo',minutes:60,price:50},
+{id:'laser-virilha',category:'Laser',name:'Virilha total',minutes:10,price:20}
+];
+const $=id=>document.getElementById(id);
+const money=n=>new Intl.NumberFormat('pt-PT',{style:'currency',currency:'EUR'}).format(n);
+const duration=n=>n>=60?Math.floor(n/60)+' h'+(n%60?' '+n%60+' min':''):n+' min';
+const clock=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
+let category='Todos',selected=null,time=null;
+function today(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
+$('date').min=today();
+function renderServices(){
+$('filters').replaceChildren(...['Todos','Mãos','Pés','Rosto','Cera','Laser'].map(c=>{const b=document.createElement('button');b.className='filter'+(c===category?' active':'');b.textContent=c;b.setAttribute('aria-pressed',String(c===category));b.onclick=()=>{category=c;renderServices()};return b}));
+$('services').replaceChildren(...services.filter(s=>category==='Todos'||s.category===category).map(s=>{const b=document.createElement('button');b.className='service';b.setAttribute('aria-pressed',String(selected?.id===s.id));const name=document.createElement('span');name.textContent=s.name;const small=document.createElement('small');small.textContent=s.category+' · '+duration(s.minutes);name.append(small);const price=document.createElement('span');price.className='price';price.textContent=money(s.price);b.append(name,price);b.onclick=()=>{selected=s;time=null;$('result').textContent='A marcação só poderá ser enviada quando a agenda online estiver ligada.';renderServices();renderSlots();summary()};return b}));
+}
+function availableSlots(day,minutes,now=new Date()){
+if(!day||day<today()||![1,2,4,5,6].includes(new Date(day+'T12:00:00').getDay()))return [];
+const current=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Lisbon',hour:'2-digit',minute:'2-digit',hour12:false}).format(now).split(':').map(Number);
+const morningEnd=new Date(day+'T12:00:00').getDay()===6?780:720;
+const result=[];for(const [start,end] of [[540,morningEnd],[900,1140]])for(let t=start;t+minutes<=end;t+=5){if(day===today()&&t<=current[0]*60+current[1])continue;result.push(clock(t))}return result;
+}
+function renderSlots(){
+$('slots').replaceChildren();if(!selected||!$('date').value){$('slotHint').textContent='Escolha primeiro um serviço e um dia.';return}
+const slots=availableSlots($('date').value,selected.minutes);
+$('slotHint').textContent=slots.length?'Horários de demonstração · duração: '+duration(selected.minutes):'Não há horários neste dia. Escolha outro dia de atendimento.';
+slots.forEach(t=>{const b=document.createElement('button');b.className='slot';b.textContent=t;b.setAttribute('aria-pressed',String(t===time));b.onclick=()=>{time=t;renderSlots();summary()};$('slots').append(b)});
+}
+function summary(){
+$('sumService').textContent=selected?selected.name+' · '+selected.category:'Por escolher';
+$('sumDuration').textContent=selected?duration(selected.minutes):'—';
+$('sumPrice').textContent=selected?money(selected.price):'—';
+$('sumDate').textContent=time?new Intl.DateTimeFormat('pt-PT',{day:'2-digit',month:'2-digit'}).format(new Date($('date').value+'T12:00:00'))+' · '+time:'—';
+$('review').disabled=!(selected&&time);
+}
+$('date').onchange=()=>{time=null;renderSlots();summary()};
+$('review').onclick=()=>{if(!selected||!availableSlots($('date').value,selected.minutes).includes(time)){time=null;renderSlots();summary();return}$('result').textContent='Seleção revista: '+selected.name+' ('+selected.category+'), '+$('sumDate').textContent+', '+money(selected.price)+'. Esta demonstração não envia pedidos. A confirmação pela Ana será ligada na próxima fase.'};
+renderServices();summary();
+</script><p style="text-align:center"><a href="admin.html" style="color:#915368">Área da Ana</a></p><script type="module" src="client-online.js"></script></body></html>
