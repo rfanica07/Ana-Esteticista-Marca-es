@@ -1,4 +1,5 @@
 import {db,login,currentUser,message,registerWorker} from './backend.js';
+import {initManualBookings} from './admin-create.js';
 let authorized=false;
 const $=id=>document.getElementById(id);
 const date=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());$('agendaDate').value=date;
@@ -48,5 +49,5 @@ if(!db){message('status','A base de dados ainda não está ligada. A agenda priv
 else{
  const user=await currentUser();
  if(user){const {data,error}=await db.from('staff').select('user_id').eq('user_id',user.id).maybeSingle();authorized=!!data&&!error;
- if(authorized){$('login').hidden=true;$('agenda').hidden=false;await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
+ if(authorized){$('login').hidden=true;$('agenda').hidden=false;await initManualBookings({db,onSaved:async day=>{$('agendaDate').value=day;await load()}});await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
 }
