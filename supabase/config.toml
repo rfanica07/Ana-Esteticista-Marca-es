@@ -1,0 +1,3 @@
+# The function authenticates x-webhook-secret through a service-role-only RPC.
+[functions.notify]
+verify_jwt = false
