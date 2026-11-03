@@ -1,4 +1,4 @@
-import {db,login,currentUser,message,registerWorker} from './backend.js';
+import {db,bindLogin,recoveryLink,currentUser,message,registerWorker} from './backend.js';
 registerWorker().catch(()=>{});
 const notice=document.querySelector('.notice');
 const form=document.getElementById('bookingForm');
@@ -28,16 +28,21 @@ if(!db){
   message('slotHint',data.length?'Escolha um horário.':'Sem horários disponíveis neste dia.');
   data.forEach(({slot})=>{const button=document.createElement('button');button.className='slot';button.textContent=slot;button.setAttribute('aria-pressed','false');button.onclick=()=>{time=slot;for(const other of document.querySelectorAll('.slot'))other.setAttribute('aria-pressed',String(other===button));summary()};document.getElementById('slots').append(button)});
  };
- document.getElementById('loginClient').onclick=async()=>{
-  const input=document.getElementById('clientEmail');if(!input.reportValidity())return;
-  try{await login(input.value,'index.html');message('result','Enviámos um link para o seu email. Abra-o neste dispositivo para entrar e depois escolha a marcação.')}catch(e){message('result',e.message)}
+ const updateLogin=async()=>{
+  if(recoveryLink)return;
+  const user=await currentUser();
+  document.getElementById('account').hidden=!!user;
+  document.getElementById('clientSignOut').hidden=!user;
+  message('loginStatus',user?'Sessão iniciada. Pode enviar o pedido.':'Entre com email e palavra-passe para enviar o pedido.');
  };
- const user=await currentUser();message('loginStatus',user?'Sessão iniciada. Pode enviar o pedido.':'Entre pelo email para enviar o pedido.');
+ bindLogin('clientEmail','loginStatus',updateLogin);
+ document.getElementById('clientSignOut').onclick=async()=>{await db.auth.signOut();await updateLogin()};
+ await updateLogin();
  document.getElementById('review').onclick=async()=>{
   if(!selected||!time)return;
   const name=document.getElementById('customerName'),phone=document.getElementById('customerPhone');
   if(!name.reportValidity()||!phone.reportValidity())return;
-  if(!await currentUser()){message('result','Entre pelo email antes de enviar o pedido.');return}
+  if(!await currentUser()){message('result','Entre na sua conta antes de enviar o pedido.');return}
   const button=document.getElementById('review');button.disabled=true;
   try{
    const {data,error}=await db.rpc('request_booking',{p_service:selected.id,p_day:document.getElementById('date').value,p_time:time,p_name:name.value,p_phone:phone.value});

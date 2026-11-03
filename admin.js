@@ -1,9 +1,9 @@
-import {db,login,currentUser,message,registerWorker} from './backend.js';
+import {db,bindLogin,recoveryLink,currentUser,message,registerWorker} from './backend.js';
 import {initManualBookings} from './admin-create.js';
 let authorized=false;
 const $=id=>document.getElementById(id);
 const date=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());$('agendaDate').value=date;
-$('signIn').onclick=async()=>{if(!$('email').reportValidity())return;try{await login($('email').value,'admin.html');message('status','Abra o link enviado para o email da Ana.')}catch(e){message('status',e.message)}};
+
 $('signOut').onclick=async()=>{await db.auth.signOut();location.reload()};
 async function load(){
  if(!authorized)return;
@@ -47,7 +47,8 @@ $('enablePush').onclick=async()=>{
 };
 if(!db){message('status','A base de dados ainda não está ligada. A agenda privada fica disponível após a configuração.');$('signIn').disabled=true}
 else{
+ bindLogin('email','status',()=>location.reload());
  const user=await currentUser();
- if(user){const {data,error}=await db.from('staff').select('user_id').eq('user_id',user.id).maybeSingle();authorized=!!data&&!error;
+ if(user&&!recoveryLink){const {data,error}=await db.from('staff').select('user_id').eq('user_id',user.id).maybeSingle();authorized=!!data&&!error;
  if(authorized){$('login').hidden=true;$('agenda').hidden=false;await initManualBookings({db,onSaved:async day=>{$('agendaDate').value=day;await load()}});await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
 }
