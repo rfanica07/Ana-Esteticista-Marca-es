@@ -8,7 +8,7 @@ class Element {
  append(node){this.children.push(node)}
  reportValidity(){return true}
 }
-const ids=['manualForm','manualFields','manualService','manualDay','manualTime','manualSubmit','manualStatus','manualName','manualPhone','manualReminder'];
+const ids=['manualForm','manualFields','manualService','manualDay','manualTime','manualSubmit','manualStatus','manualName','manualPhone'];
 const elements=Object.fromEntries(ids.map(id=>[id,new Element()]));
 const context=vm.createContext({Intl,Date,document:{getElementById:id=>elements[id],createElement:()=>new Element()}});
 vm.runInContext(source.replace('export async function','async function'),context);
@@ -37,8 +37,7 @@ const event={preventDefault(){}};
 const saving=elements.manualForm.onsubmit(event);
 await elements.manualForm.onsubmit(event);
 assert.equal(creates.length,1,'double submission must create only one request');
-assert.equal(creates[0].name,'create_staff_booking_with_reminder');
-assert.equal(creates[0].args.p_reminder,false);
+assert.equal(creates[0].name,'create_staff_booking');
 assert.equal(creates[0].args.p_day,'2026-11-03');
 creation.resolve({data:'test-reference',error:null});
 while(waiting.length<3)await Promise.resolve();

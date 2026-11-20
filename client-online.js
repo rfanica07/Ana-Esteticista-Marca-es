@@ -62,10 +62,6 @@ if(!db){
    message('dataRequestStatus','Pedido registado. Referência '+data+'. A Ana irá analisá-lo.');
   }catch(error){message('dataRequestStatus',error.message)}finally{button.disabled=false}
  };
- document.getElementById('withdrawReminders').onclick=async()=>{
-  const {error}=await db.rpc('withdraw_whatsapp_reminders');
-  message('dataRequestStatus',error?error.message:'Autorização retirada para os lembretes associados à sua conta. Pode voltar a autorizar numa futura marcação.');
- };
  await updateLogin();
  document.getElementById('review').onclick=async()=>{
   if(submitting||!selected||!time||verifiedSelection!==selected.id+'|'+document.getElementById('date').value)return;
@@ -77,7 +73,7 @@ if(!db){
   try{
    const {error:privacyError}=await db.rpc('acknowledge_privacy',{p_version:'2026-11-20',p_purpose:'booking'});
    if(privacyError)throw privacyError;
-   const {data,error}=await db.rpc('request_booking_with_reminder',{p_service:selected.id,p_day:document.getElementById('date').value,p_time:time,p_name:name.value,p_phone:phone.value,p_reminder:document.getElementById('whatsappConsent').checked});
+   const {data,error}=await db.rpc('request_booking',{p_service:selected.id,p_day:document.getElementById('date').value,p_time:time,p_name:name.value,p_phone:phone.value});
    if(error)throw error;
    message('result','Pedido recebido. Referência: '+data+'. Aguarde a confirmação da Ana.');name.value='';phone.value='';await renderSlots();await loadMyBookings();
   }catch(e){message('result','O pedido não foi confirmado: '+e.message);await renderSlots()}

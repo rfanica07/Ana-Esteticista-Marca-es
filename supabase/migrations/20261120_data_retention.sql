@@ -41,7 +41,6 @@ begin
  if not coalesce((select enabled from private.retention_settings where singleton),false) then
   return jsonb_build_object('enabled',false);
  end if;
- delete from public.whatsapp_reminders where booking_id=any(booking_ids);
  delete from public.notification_events where booking_id=any(booking_ids);
  delete from public.bookings where id=any(booking_ids);
  delete from public.customer_contacts c where c.updated_at<cutoff

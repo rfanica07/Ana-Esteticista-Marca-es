@@ -10,16 +10,13 @@ begin
  select slot into slot_time from public.available_slots(service,day) limit 1;
  perform set_config('request.jwt.claim.sub',client_id::text,true);
  perform public.acknowledge_privacy('2026-11-20','booking');
- booking:=public.request_booking_with_reminder(service,day,slot_time,'Cliente teste','912345678',true);
- if not exists(select 1 from public.bookings where id=booking and whatsapp_reminder_consent and reminder_consent_at is not null) then raise exception 'Consent missing'; end if;
+ booking:=public.request_booking(service,day,slot_time,'Cliente teste','912345678');
  if not exists(select 1 from public.customer_contacts where phone='351912345678' and name='Cliente teste') then raise exception 'Contact missing'; end if;
  perform public.submit_data_request('access','Teste de acesso');
  execute 'set local role authenticated';
  if exists(select 1 from public.customer_contacts) then raise exception 'Contact book exposed to client'; end if;
  if (select count(*) from public.bookings where customer_id=client_id)<>1 then raise exception 'Own booking inaccessible'; end if;
- perform public.withdraw_whatsapp_reminders();
  execute 'reset role';
- if exists(select 1 from public.bookings where id=booking and whatsapp_reminder_consent) then raise exception 'Withdrawal failed'; end if;
  perform set_config('request.jwt.claim.sub',other_id::text,true);
  execute 'set local role authenticated';
  if exists(select 1 from public.data_requests) then raise exception 'Other client data request visible'; end if;

@@ -32,9 +32,9 @@ export async function initManualBookings({db,onSaved}) {
   busy=true;fields.disabled=true;submit.disabled=true;status('A guardar marcação…');
   const chosenDay=day.value;
   try{
-   const {error}=await db.rpc('create_staff_booking_with_reminder',{p_service:service.value,p_day:chosenDay,p_time:time.value,p_name:el('manualName').value.trim(),p_phone:el('manualPhone').value.trim(),p_reminder:el('manualReminder').checked});
+   const {error}=await db.rpc('create_staff_booking',{p_service:service.value,p_day:chosenDay,p_time:time.value,p_name:el('manualName').value.trim(),p_phone:el('manualPhone').value.trim()});
    if(error)throw error;
-   el('manualName').value='';el('manualPhone').value='';el('manualReminder').checked=false;
+   el('manualName').value='';el('manualPhone').value='';
   }catch(error){
    busy=false;fields.disabled=false;await loadSlots();
    status(['PGRST202','42883'].includes(error.code)?'A criação de marcações ainda aguarda ativação na base de dados.':'Não foi possível guardar: '+error.message);
