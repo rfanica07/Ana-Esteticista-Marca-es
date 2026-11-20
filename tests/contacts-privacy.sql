@@ -1,0 +1,33 @@
+begin;
+do $$
+declare client_id uuid:=gen_random_uuid(); other_id uuid:=gen_random_uuid(); staff_id uuid:=gen_random_uuid(); service text; day date; slot_time text; booking uuid;
+begin
+ insert into auth.users(id,email,raw_user_meta_data) values(client_id,'privacy-test@example.invalid','{"privacy_notice_version":"2026-11-20"}'),(other_id,'privacy-other@example.invalid','{}'),(staff_id,'privacy-staff@example.invalid','{}');
+ insert into public.staff values(staff_id);
+ if not exists(select 1 from public.privacy_acknowledgements where user_id=client_id and purpose='registration') then raise exception 'Registration receipt missing'; end if;
+ select id into service from public.services order by minutes limit 1;
+ select d::date into day from generate_series(current_date+1,current_date+7,interval '1 day') d where extract(isodow from d) in(1,2,4,5,6) limit 1;
+ select slot into slot_time from public.available_slots(service,day) limit 1;
+ perform set_config('request.jwt.claim.sub',client_id::text,true);
+ perform public.acknowledge_privacy('2026-11-20','booking');
+ booking:=public.request_booking_with_reminder(service,day,slot_time,'Cliente teste','912345678',true);
+ if not exists(select 1 from public.bookings where id=booking and whatsapp_reminder_consent and reminder_consent_at is not null) then raise exception 'Consent missing'; end if;
+ if not exists(select 1 from public.customer_contacts where phone='351912345678' and name='Cliente teste') then raise exception 'Contact missing'; end if;
+ perform public.submit_data_request('access','Teste de acesso');
+ execute 'set local role authenticated';
+ if exists(select 1 from public.customer_contacts) then raise exception 'Contact book exposed to client'; end if;
+ if (select count(*) from public.bookings where customer_id=client_id)<>1 then raise exception 'Own booking inaccessible'; end if;
+ perform public.withdraw_whatsapp_reminders();
+ execute 'reset role';
+ if exists(select 1 from public.bookings where id=booking and whatsapp_reminder_consent) then raise exception 'Withdrawal failed'; end if;
+ perform set_config('request.jwt.claim.sub',other_id::text,true);
+ execute 'set local role authenticated';
+ if exists(select 1 from public.data_requests) then raise exception 'Other client data request visible'; end if;
+ if exists(select 1 from public.privacy_acknowledgements) then raise exception 'Other privacy receipt visible'; end if;
+ execute 'reset role';
+ perform set_config('request.jwt.claim.sub',staff_id::text,true);
+ execute 'set local role authenticated';
+ if not exists(select 1 from public.customer_contacts where phone='351912345678') then raise exception 'Staff cannot access contact'; end if;
+ execute 'reset role';
+end $$;
+rollback;
