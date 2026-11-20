@@ -63,17 +63,6 @@ end $$;
 revoke all on function public.submit_data_request(text,text) from public,anon;
 grant execute on function public.submit_data_request(text,text) to authenticated;
 
-create or replace function public.withdraw_whatsapp_reminders()
-returns void language plpgsql security definer set search_path='' as $$
-begin
- if auth.uid() is null then raise exception 'Entre na sua conta.'; end if;
- update public.bookings set whatsapp_reminder_consent=false where customer_id=auth.uid();
- update public.whatsapp_reminders r set status='cancelled' from public.bookings b
- where b.id=r.booking_id and b.customer_id=auth.uid() and r.status='queued';
-end $$;
-revoke all on function public.withdraw_whatsapp_reminders() from public,anon;
-grant execute on function public.withdraw_whatsapp_reminders() to authenticated;
-
 create or replace function public.complete_data_request(p_id uuid)
 returns void language plpgsql security definer set search_path='' as $$
 begin

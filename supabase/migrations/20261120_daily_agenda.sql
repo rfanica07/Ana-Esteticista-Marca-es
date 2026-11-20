@@ -20,16 +20,4 @@ end $$;
 revoke all on function private.queue_daily_agenda() from public,anon,authenticated;
 select cron.schedule('ana-daily-agenda','*/5 * * * *','select private.queue_daily_agenda()');
 
-create or replace function public.create_staff_booking_with_reminder(
- p_service text,p_day date,p_time text,p_name text,p_phone text,p_reminder boolean default false)
-returns uuid language plpgsql security definer set search_path='' as $$
-declare booking uuid;
-begin
- booking:=public.create_staff_booking(p_service,p_day,p_time,p_name,p_phone);
- update public.bookings set whatsapp_reminder_consent=coalesce(p_reminder,false),
- reminder_consent_at=case when p_reminder then now() end where id=booking;
- return booking;
-end $$;
-revoke all on function public.create_staff_booking_with_reminder(text,date,text,text,text,boolean) from public,anon;
-grant execute on function public.create_staff_booking_with_reminder(text,date,text,text,text,boolean) to authenticated;
 commit;
