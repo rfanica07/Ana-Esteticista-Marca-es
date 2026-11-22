@@ -29,6 +29,23 @@ Deno.serve(async req => {
    recipientIds=[event.recipient_id];
    const descriptions={confirmed:'A Ana confirmou a sua marcação.',declined:'A Ana não conseguiu aceitar o seu pedido.',cancelled:'A sua marcação foi cancelada.'};
    pushPayload={id:eventId,audience:'client',body:descriptions[event.booking_status]+' Abra a app para consultar a data, hora e serviço.'};
+   } else if(event.notification_kind === 'follow_up') {
+   const now=new Date();
+   const localDay=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
+   const localTime=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Lisbon',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(now);
+   const calendarDay=new Date(localDay+'T12:00:00Z');
+   if([2,6].includes(calendarDay.getUTCDay()) || localTime<'13:30' || localTime>='14:00')return new Response('Outside follow-up reminder window');
+   calendarDay.setUTCDate(calendarDay.getUTCDate()+1);
+   const day=calendarDay.toISOString().slice(0,10);
+   if(event.reminder_day!==day)return new Response('Expired follow-up reminder');
+   const from=new Date(day+'T00:00:00Z');from.setUTCDate(from.getUTCDate()-1);
+   const until=new Date(day+'T00:00:00Z');until.setUTCDate(until.getUTCDate()+2);
+   const {data:appointments,error:agendaError}=await db.from('bookings').select('starts_at').eq('status','confirmed').gte('starts_at',from.toISOString()).lt('starts_at',until.toISOString());
+   if(agendaError)throw agendaError;
+   const formatter=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit'});
+   const count=appointments.filter(item=>formatter.format(new Date(item.starts_at))===day).length;
+   if(!count)return new Response('No confirmed appointments tomorrow');
+   pushPayload={id:eventId,day,body:'Envie os lembretes das '+count+' marcações confirmadas de amanhã. Toque para abrir a agenda e preparar as mensagens.'};
   } else if(event.notification_kind === 'daily_agenda') {
    const day = event.reminder_day;
    if(day !== new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()))
