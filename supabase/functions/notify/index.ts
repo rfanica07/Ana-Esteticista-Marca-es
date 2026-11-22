@@ -17,13 +17,19 @@ Deno.serve(async req => {
   eventId = payload.record?.id;
   if (typeof eventId !== 'string' || !/^[0-9a-f-]{36}$/i.test(eventId))
    return new Response('Invalid event',{status:400});
-  const {data:event,error} = await db.from('notification_events').select('id,delivered_at,notification_kind,reminder_day,bookings(status,starts_at)').eq('id',eventId).maybeSingle();
+  const {data:event,error} = await db.from('notification_events').select('id,delivered_at,notification_kind,reminder_day,recipient_id,booking_status,bookings(status,starts_at,customer_id)').eq('id',eventId).maybeSingle();
   if (error) throw error;
   if (!event) return new Response('Not found',{status:404});
   if (event.delivered_at) return new Response('Already delivered');
-  const booking = event.bookings as unknown as {status:string;starts_at:string};
-  let pushPayload: {id:string;body?:string;day?:string} = {id:eventId};
-  if(event.notification_kind === 'daily_agenda') {
+  const booking = event.bookings as unknown as {status:string;starts_at:string;customer_id:string};
+  let pushPayload: {id:string;body?:string;day?:string;audience?:string} = {id:eventId};
+  let recipientIds:string[]=[];
+  if(event.notification_kind === 'client_status') {
+   if(!booking || booking.customer_id!==event.recipient_id || booking.status!==event.booking_status || !['confirmed','declined','cancelled'].includes(event.booking_status))return new Response('Obsolete response');
+   recipientIds=[event.recipient_id];
+   const descriptions={confirmed:'A Ana confirmou a sua marcação.',declined:'A Ana não conseguiu aceitar o seu pedido.',cancelled:'A sua marcação foi cancelada.'};
+   pushPayload={id:eventId,audience:'client',body:descriptions[event.booking_status]+' Abra a app para consultar a data, hora e serviço.'};
+  } else if(event.notification_kind === 'daily_agenda') {
    const day = event.reminder_day;
    if(day !== new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()))
     return new Response('Expired daily agenda');
@@ -35,19 +41,23 @@ Deno.serve(async req => {
    const count=appointments.filter(item=>formatter.format(new Date(item.starts_at))===day).length;
    if(!count)return new Response('No appointments today');
    pushPayload={id:eventId,day,body:'Tem '+count+' marcações confirmadas hoje. Abra a agenda para consultar.'};
-  } else {
+  } else if(event.notification_kind === 'request') {
    if (!booking || booking.status !== 'pending' || new Date(booking.starts_at) <= new Date())
     return new Response('No longer pending');
    pushPayload.day=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(booking.starts_at));
   }
+  else return new Response('Unsupported notification',{status:400});
   const {data:acquired,error:claimError} = await db.rpc('claim_notification',{p_id:eventId});
   if (claimError) throw claimError;
   if (!acquired) return new Response('Already processing',{status:202});
   claimed = true;
-  const {data:staff,error:staffError} = await db.from('staff').select('user_id');
-  if (staffError) throw staffError;
-  if (!staff?.length) return new Response('No staff configured',{status:503});
-  const {data:subs,error:subError} = await db.from('push_subscriptions').select('*').in('user_id',staff.map(s=>s.user_id));
+  if(event.notification_kind!=='client_status'){
+   const {data:staff,error:staffError}=await db.from('staff').select('user_id');
+   if(staffError)throw staffError;
+   recipientIds=staff?.map(s=>s.user_id)||[];
+  }
+  if(!recipientIds.length)return new Response('No recipients configured',{status:503});
+  const {data:subs,error:subError} = await db.from('push_subscriptions').select('*').in('user_id',recipientIds);
   if (subError) throw subError;
   if (!subs?.length) return new Response('No registered phone',{status:503});
   const {data:receipts,error:receiptError} = await db.from('notification_deliveries').select('endpoint').eq('event_id',eventId);
