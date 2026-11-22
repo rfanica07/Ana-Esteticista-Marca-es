@@ -8,6 +8,7 @@ let request = 0;
 let knownContactPhones=new Set();
 let contactsLoaded=false;
 let contactRenderKey=null;
+let dailyRenderKey=null,pendingRenderKey=null;
 const $ = id => document.getElementById(id);
 const today = lisbonDay(new Date());
 const requestedDay = new URLSearchParams(location.search).get('day');
@@ -40,6 +41,7 @@ function card(booking, showDay = false) {
  const phone=document.createElement('a');phone.href='tel:+'+internationalPhone(booking.phone);phone.textContent='Ligar';actions.append(phone);
  article.append(title,details,state,actions);
  if(booking.status==='confirmed')article.append(followUpControls(booking));
+ if(['pending','confirmed'].includes(booking.status))article.append(appInvitationControls({name:booking.customer_name,phone:booking.phone}));
  return article;
 }
 function selectDay(day) {
@@ -100,11 +102,13 @@ async function load() {
  if(current!==request)return;
  if(daily.error||pending.error||monthly.error){message('status','Não foi possível atualizar a agenda. Toque em Atualizar agenda.');return}
  const selected=daily.data.filter(booking=>lisbonDay(booking.starts_at)===day);
- $('bookings').replaceChildren(...selected.map(booking=>card(booking)));
+ const dailyKey=JSON.stringify([day,selected]);
+ if(dailyKey!==dailyRenderKey){$('bookings').replaceChildren(...selected.map(booking=>card(booking)));dailyRenderKey=dailyKey}
  message('count',fullDate(day+'T12:00:00Z')+' · '+selected.length+' marcações');
  const pendingItems=pendingBookings(pending.data);
  message('pendingCount',pendingItems.length ? pendingItems.length+' pedidos por confirmar' : 'Sem pedidos pendentes');
- $('pendingBookings').replaceChildren(...pendingItems.map(booking=>card(booking,true)));
+ const pendingKey=JSON.stringify(pendingItems);
+ if(pendingKey!==pendingRenderKey){$('pendingBookings').replaceChildren(...pendingItems.map(booking=>card(booking,true)));pendingRenderKey=pendingKey}
  renderMonth(monthly.data);
  message('status','Agenda atualizada. Os pedidos de todos os dias aparecem em Pedidos pendentes.');
  await loadContacts();
