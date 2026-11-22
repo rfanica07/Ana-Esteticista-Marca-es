@@ -75,4 +75,4 @@ $('review').disabled=!(selected&&time);
 $('date').onchange=()=>{time=null;renderSlots();summary()};
 $('review').onclick=()=>{if(!selected||!availableSlots($('date').value,selected.minutes).includes(time)){time=null;renderSlots();summary();return}$('result').textContent='Seleção revista: '+selected.name+' ('+selected.category+'), '+$('sumDate').textContent+', '+money(selected.price)+'. Esta demonstração não envia pedidos. A confirmação pela Ana será ligada na próxima fase.'};
 renderServices();summary();
-</script><p style="text-align:center"><a href="admin.html" style="color:#915368">Área da Ana</a></p><script type="module" src="client-online.js?v=20261122"></script></body></html>
+</script><p id="anaAreaLink" hidden style="text-align:center"><a href="admin.html" style="color:#915368">Área da Ana</a></p><script type="module" src="client-online.js?v=20261122-private-area"></script></body></html>
