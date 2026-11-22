@@ -60,7 +60,7 @@ export function bindLogin(emailId,statusId,onLogin){
  document.getElementById('signup').onclick=()=>submit(true);
 }
 export async function currentUser(){if(!db)return null;const {data,error}=await db.auth.getUser();return error?null:data.user}
-export async function registerWorker(){if('serviceWorker' in navigator&&location.protocol==='https:')return navigator.serviceWorker.register('./sw.js',{scope:'./'})}
+export async function registerWorker(){if('serviceWorker' in navigator&&location.protocol==='https:')return navigator.serviceWorker.register('./sw.js?v=20261122',{scope:'./'})}
 export async function enablePush(){
  if(!('PushManager' in window)||!('Notification' in window))throw Error('Abra a app instalada no ecrã principal para ativar notificações. No iPhone, use Partilhar e Adicionar ao ecrã principal.');
  if(!cfg.vapidPublicKey)throw Error('As notificações ainda precisam de ser configuradas.');
