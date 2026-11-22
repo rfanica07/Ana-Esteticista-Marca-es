@@ -1,4 +1,4 @@
-import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice} from './backend.js';
+import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice} from './backend.js?v=20261122';
 import {followUpControls} from './follow-up.js';
 import {initManualBookings} from './admin-create.js';
 import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings} from './agenda.js';

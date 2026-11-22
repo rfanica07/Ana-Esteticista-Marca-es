@@ -1,4 +1,4 @@
-import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice} from './backend.js';
+import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice} from './backend.js?v=20261122';
 registerWorker().catch(()=>{});
 const notice=document.querySelector('.notice');
 const form=document.getElementById('bookingForm');
