@@ -2,6 +2,23 @@ import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,
 registerWorker().catch(()=>{});
 const notice=document.querySelector('.notice');
 const form=document.getElementById('bookingForm');
+const anaAreaLink=document.getElementById('anaAreaLink');
+let accessRequest=0;
+async function updateAnaAccess(user){
+ const request=++accessRequest;
+ anaAreaLink.hidden=true;
+ if(!db)return;
+ try{
+  user=user===undefined?await currentUser():user;
+  if(!user||request!==accessRequest)return;
+  const {data,error}=await db.from('staff').select('user_id').eq('user_id',user.id).maybeSingle();
+  if(request===accessRequest)anaAreaLink.hidden=!!error||data?.user_id!==user.id;
+ }catch{if(request===accessRequest)anaAreaLink.hidden=true}
+}
+if(db)db.auth.onAuthStateChange(()=>{
+ ++accessRequest;anaAreaLink.hidden=true;
+ setTimeout(()=>{updateAnaAccess()},0);
+});
 let slotsRequest=0,verifiedSelection=null,submitting=false;
 document.getElementById('bookingPrivacy').onchange=()=>summary();
 const baseSummary=summary;
@@ -61,6 +78,7 @@ if(!db){
  const updateLogin=async()=>{
   if(recoveryLink)return;
   const user=await currentUser();
+  await updateAnaAccess(user);
   document.getElementById('account').hidden=!!user;
   document.getElementById('clientSignOut').hidden=!user;
   document.getElementById('privacyControls').hidden=!user;
