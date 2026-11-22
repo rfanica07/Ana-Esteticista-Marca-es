@@ -1,4 +1,4 @@
-export async function initManualBookings({db,onSaved}) {
+export async function initManualBookings({db,onSaved,isKnownContact=()=>false}) {
  const el=id=>document.getElementById(id);
  const form=el('manualForm'),fields=el('manualFields'),service=el('manualService'),day=el('manualDay'),time=el('manualTime'),submit=el('manualSubmit');
  const status=text=>{el('manualStatus').textContent=text};
@@ -31,8 +31,10 @@ export async function initManualBookings({db,onSaved}) {
   if(busy||!form.reportValidity()||!time.value||verifiedKey!==service.value+'|'+day.value)return;
   busy=true;fields.disabled=true;submit.disabled=true;status('A guardar marcação…');
   const chosenDay=day.value;
+  const contact={name:el('manualName').value.trim(),phone:el('manualPhone').value.trim()};
+  contact.isNew=!isKnownContact(contact.phone);
   try{
-   const {error}=await db.rpc('create_staff_booking',{p_service:service.value,p_day:chosenDay,p_time:time.value,p_name:el('manualName').value.trim(),p_phone:el('manualPhone').value.trim()});
+   const {error}=await db.rpc('create_staff_booking',{p_service:service.value,p_day:chosenDay,p_time:time.value,p_name:contact.name,p_phone:contact.phone});
    if(error)throw error;
    el('manualName').value='';el('manualPhone').value='';
   }catch(error){
@@ -42,7 +44,7 @@ export async function initManualBookings({db,onSaved}) {
   }
   busy=false;fields.disabled=false;await loadSlots();
   status('Marcação confirmada e guardada na agenda.');
-  try{await onSaved(chosenDay)}catch{status('Marcação guardada. Toque em Atualizar agenda para a consultar.')}
+  try{await onSaved(chosenDay,contact)}catch{status('Marcação guardada. Toque em Atualizar agenda para a consultar.')}
  };
  try{
   const {data,error}=await db.from('services').select('id,name,category,minutes,price').order('category').order('name');

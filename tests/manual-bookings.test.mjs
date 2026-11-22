@@ -19,8 +19,8 @@ const db={from(){return {select(){return {order(){return {order:async()=>({data:
  if(name==='available_slots'){const item=deferred();waiting.push({...item,args});return item.promise}
  creates.push({name,args});return creation.promise;
 }};
-let savedDay=null;
-await context.initManualBookings({db,onSaved:async day=>{savedDay=day}});
+let savedDay=null,savedContact=null,savedCalls=0,knownContact=false;
+await context.initManualBookings({db,isKnownContact:()=>knownContact,onSaved:async(day,contact)=>{savedDay=day;savedContact=contact;savedCalls++}});
 assert.equal(elements.manualFields.disabled,false);
 assert.equal(elements.manualSubmit.disabled,true);
 elements.manualService.value='gel';elements.manualDay.value='2026-11-02';
@@ -39,10 +39,12 @@ await elements.manualForm.onsubmit(event);
 assert.equal(creates.length,1,'double submission must create only one request');
 assert.equal(creates[0].name,'create_staff_booking');
 assert.equal(creates[0].args.p_day,'2026-11-03');
+knownContact=true; // A background contact refresh while the booking is saving must not suppress the invitation.
 creation.resolve({data:'test-reference',error:null});
 while(waiting.length<3)await Promise.resolve();
 waiting[2].resolve({data:[],error:null});await saving;
 assert.equal(savedDay,'2026-11-03');
+assert.equal(savedContact.name,'Cliente de teste');assert.equal(savedContact.phone,'900000000');assert.equal(savedContact.isNew,true);
 assert.equal(elements.manualName.value,'');
 assert.equal(elements.manualSubmit.disabled,true);
 assert.match(elements.manualStatus.textContent,/confirmada e guardada/);
@@ -55,5 +57,6 @@ while(waiting.length<5)await Promise.resolve();
 waiting[4].resolve({data:[{slot:'09:00'}],error:null});await failing;
 assert.match(elements.manualStatus.textContent,/aguarda ativação/);
 assert.equal(elements.manualName.value,'Cliente de teste','a failure must preserve customer inputs');
+assert.equal(savedCalls,1,'failed bookings must not generate an invitation');
 console.log('PASS: catalogue, stale availability, duplicate submit, confirmed booking, missing migration and preserved inputs');
 
