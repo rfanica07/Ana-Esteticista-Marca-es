@@ -5,7 +5,7 @@ export const db=cfg.supabaseUrl&&cfg.supabasePublishableKey?createClient(cfg.sup
 export const message=(id,text)=>{const el=document.getElementById(id);if(el)el.textContent=text};
 function authError(error){
  if(error.code==='over_email_send_rate_limit'||/email rate limit exceeded/i.test(error.message||''))
-  return 'O envio de emails atingiu o limite do serviço atual. A Ana precisa de concluir a configuração do serviço de email da app.';
+  return 'O serviço de email atingiu temporariamente o limite. Aguarde antes de tentar novamente. Se já tem palavra-passe, pode entrar normalmente. Para definir uma palavra-passe, contacte a Ana se o problema continuar.';
  if(error.code==='email_address_not_authorized')
   return 'O envio de emails para este endereço ainda não está disponível. Contacte a Ana.';
  return error.message||'Não foi possível continuar. Tente novamente.';
@@ -13,6 +13,7 @@ function authError(error){
 export function bindLogin(emailId,statusId,onLogin){
  const form=document.getElementById('account'), email=document.getElementById(emailId), password=document.getElementById('password');
  let busy=false, recovering=recoveryLink;
+ let resetReadyAt=0;
  const reset=document.getElementById('resetPassword');
  function recovery(){
   recovering=true;form.hidden=false;email.required=false;email.disabled=true;
@@ -25,6 +26,8 @@ export function bindLogin(emailId,statusId,onLogin){
  db.auth.onAuthStateChange(event=>{if(event==='PASSWORD_RECOVERY')recovery()});
  reset.onclick=async()=>{
   if(busy||!email.reportValidity())return;
+  if(Date.now()<resetReadyAt){message(statusId,'Aguarde um minuto antes de pedir outro email. Verifique também o spam.');return}
+  resetReadyAt=Date.now()+60000;
   busy=true;
   reset.disabled=true;
   message(statusId,'A pedir o link de recuperação…');
@@ -52,7 +55,7 @@ export function bindLogin(emailId,statusId,onLogin){
    if(error)throw error;
    password.value='';
    if(data.session)await onLogin();
-   else message(statusId,'Confirme a conta pelo email. Depois entre com a sua palavra-passe.');
+   else message(statusId,'Se foi criado um novo registo, verifique o email e o spam para o confirmar. Se já tem conta, entre com a sua palavra-passe.');
   }catch(e){message(statusId,({invalid_credentials:'Email ou palavra-passe incorretos.',email_not_confirmed:'Confirme o email da conta antes de entrar.'})[e.code]||authError(e))}
   finally{busy=false;for(const button of form.querySelectorAll('button'))button.disabled=false}
  }
@@ -80,4 +83,14 @@ export async function signOutDevice(){
   if(sub){await db.from('push_subscriptions').delete().eq('endpoint',sub.endpoint);await sub.unsubscribe()}
  }
  await db.auth.signOut();
+}
+
+export async function devicePushState(){
+ if(!('Notification' in window)||!('PushManager' in window))return 'Notificações indisponíveis neste navegador. No iPhone, instale e abra pelo ecrã principal.';
+ if(Notification.permission!=='granted')return 'Este dispositivo ainda não tem autorização para notificações.';
+ const reg=await navigator.serviceWorker.getRegistration('./');const sub=await reg?.pushManager?.getSubscription();
+ if(!sub)return 'Notificações autorizadas, mas este dispositivo precisa de voltar a ser registado.';
+ const user=await currentUser();if(!user)return 'Entre para verificar as notificações.';
+ const {data,error}=await db.from('push_subscriptions').select('endpoint').eq('endpoint',sub.endpoint).eq('user_id',user.id).maybeSingle();
+ return data&&!error?'Este dispositivo está registado para receber avisos. A entrega depende também das definições do telemóvel.':'Toque em Ativar notificações para ligar este dispositivo à conta atual.';
 }

@@ -6,7 +6,7 @@ self.addEventListener('push',event=>{
  const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
  for(const window of windows)window.postMessage({type:'booking-update'});
  return self.registration.showNotification('Ana Esteticista',{
-  body:payload.body||'Novo pedido de marcação. Abra a agenda para consultar.',icon:'./icon.svg',
+  body:payload.body||'Novo pedido de marcação. Abra a agenda para consultar.',icon:'./icon-192.png',
   tag:payload.id||'novo-pedido',data:{url:new URL((payload.audience==='client'?'./':'./admin.html')+(/^\d{4}-\d{2}-\d{2}$/.test(payload.day||'')?'?day='+payload.day:''),self.registration.scope).href}
  });
  })());
