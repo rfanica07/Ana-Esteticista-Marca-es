@@ -13,7 +13,6 @@ function authError(error){
 export function bindLogin(emailId,statusId,onLogin){
  const form=document.getElementById('account'), email=document.getElementById(emailId), password=document.getElementById('password');
  let busy=false, recovering=recoveryLink;
- let resetReadyAt=0;
  const reset=document.getElementById('resetPassword');
  function recovery(){
   recovering=true;form.hidden=false;email.required=false;email.disabled=true;
@@ -24,19 +23,8 @@ export function bindLogin(emailId,statusId,onLogin){
  }
  if(recovering)recovery();
  db.auth.onAuthStateChange(event=>{if(event==='PASSWORD_RECOVERY')recovery()});
- reset.onclick=async()=>{
-  if(busy||!email.reportValidity())return;
-  if(Date.now()<resetReadyAt){message(statusId,'Aguarde um minuto antes de pedir outro email. Verifique também o spam.');return}
-  resetReadyAt=Date.now()+60000;
-  busy=true;
-  reset.disabled=true;
-  message(statusId,'A pedir o link de recuperação…');
-  try{
-   const {error}=await db.auth.resetPasswordForEmail(email.value.trim(),{redirectTo:new URL(location.pathname,location.origin).href});
-   if(error)throw error;
-   message(statusId,'Se a conta existir, receberá um link para definir a palavra-passe.');
-  }catch(e){message(statusId,authError(e))}finally{busy=false;reset.disabled=false}
- };
+ reset.onclick=()=>{location.href='https://ana-esteticista.pages.dev/recuperar.html'};
+
  async function submit(signup){
   if(busy||!form.reportValidity())return;
   if(signup&&!document.getElementById('registrationPrivacy').checked){message(statusId,'Leia o aviso de privacidade e assinale que tomou conhecimento.');return}

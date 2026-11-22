@@ -1,4 +1,4 @@
-import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice} from './backend.js?v=20261122-improvements';
+import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice} from './backend.js?v=20261122-recovery';
 registerWorker().catch(()=>{});
 const notice=document.querySelector('.notice');
 const form=document.getElementById('bookingForm');
@@ -8,7 +8,7 @@ document.getElementById('openAccount').onclick=openAccount;
 document.getElementById('bookingLogin').onclick=openAccount;
 document.getElementById('closeAccount').onclick=()=>dialog.close();
 document.getElementById('accountBookings').onclick=()=>dialog.close();
-if(recoveryLink)openAccount();
+if(recoveryLink||location.hash==='#conta')openAccount();
 
 const anaAreaLink=document.getElementById('anaAreaLink');
 let accessRequest=0;
