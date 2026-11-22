@@ -1,22 +1,30 @@
-import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice} from './backend.js?v=20261122';
+import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice} from './backend.js?v=20261122-improvements';
 registerWorker().catch(()=>{});
 const notice=document.querySelector('.notice');
 const form=document.getElementById('bookingForm');
+const dialog=document.getElementById('accountDialog');
+function openAccount(){if(!dialog.open)dialog.showModal()}
+document.getElementById('openAccount').onclick=openAccount;
+document.getElementById('bookingLogin').onclick=openAccount;
+document.getElementById('closeAccount').onclick=()=>dialog.close();
+document.getElementById('accountBookings').onclick=()=>dialog.close();
+if(recoveryLink)openAccount();
+
 const anaAreaLink=document.getElementById('anaAreaLink');
 let accessRequest=0;
 async function updateAnaAccess(user){
  const request=++accessRequest;
- anaAreaLink.hidden=true;
+ anaAreaLink.hidden=true;document.getElementById('accountAna').hidden=true;
  if(!db)return;
  try{
   user=user===undefined?await currentUser():user;
   if(!user||request!==accessRequest)return;
   const {data,error}=await db.from('staff').select('user_id').eq('user_id',user.id).maybeSingle();
-  if(request===accessRequest)anaAreaLink.hidden=!!error||data?.user_id!==user.id;
+  if(request===accessRequest){const denied=!!error||data?.user_id!==user.id;anaAreaLink.hidden=denied;document.getElementById('accountAna').hidden=denied}
  }catch{if(request===accessRequest)anaAreaLink.hidden=true}
 }
 if(db)db.auth.onAuthStateChange(()=>{
- ++accessRequest;anaAreaLink.hidden=true;
+ ++accessRequest;anaAreaLink.hidden=true;document.getElementById('accountAna').hidden=true;
  setTimeout(()=>{updateAnaAccess()},0);
 });
 let slotsRequest=0,verifiedSelection=null,submitting=false;
@@ -27,7 +35,7 @@ if(!db){
  notice.textContent='Demonstração · A ligação à base de dados ainda não foi ativada. Não são enviados pedidos.';
  form.hidden=true;
 }else{
- notice.textContent='Escolha um horário e envie o pedido. A marcação fica pendente até a Ana confirmar.';
+ notice.textContent='Escolha um horário e envie o pedido. O pedido aguarda confirmação até 24 horas, ou até à hora marcada se for antes. Sem resposta, o horário é libertado.';
  document.getElementById('review').textContent='Enviar pedido de marcação';
  form.hidden=false;
  const {data:catalog,error:catalogError}=await db.from('services').select('*');
@@ -52,23 +60,23 @@ if(!db){
   section.hidden=!user;
   document.getElementById('clientNotifications').hidden=!user;
   if(!user)return;
-  const {data,error}=await db.from('bookings').select('id,starts_at,status,services(name)').eq('customer_id',user.id).gte('starts_at',new Date().toISOString()).order('starts_at').limit(50);
+  const {data,error}=await db.from('bookings').select('id,starts_at,status,status_reason,pending_expires_at,rescheduled_at,services(name)').eq('customer_id',user.id).gte('starts_at',new Date().toISOString()).order('starts_at').limit(50);
   const list=document.getElementById('myBookingList');list.replaceChildren();
   if(error){list.textContent='Não foi possível consultar os seus pedidos. Tente atualizar a página.';return}
   if(!data.length){list.textContent='Ainda não tem pedidos futuros.';return}
   for(const booking of data){
    const line=document.createElement('p');
-   line.textContent=new Intl.DateTimeFormat('pt-PT',{timeZone:'Europe/Lisbon',dateStyle:'medium',timeStyle:'short'}).format(new Date(booking.starts_at))+' · '+(booking.services?.name||'Serviço')+' · '+({pending:'Aguarda confirmação da Ana',confirmed:'Confirmada',declined:'Recusada',cancelled:'Cancelada'})[booking.status];
+   line.textContent=new Intl.DateTimeFormat('pt-PT',{timeZone:'Europe/Lisbon',dateStyle:'medium',timeStyle:'short'}).format(new Date(booking.starts_at))+' · '+(booking.services?.name||'Serviço')+' · '+(booking.status_reason==='pending_expired'?'Prazo de confirmação terminado':({pending:'Aguarda confirmação da Ana',confirmed:'Confirmada',declined:'Recusada',cancelled:'Cancelada'})[booking.status])+(booking.status==='pending'&&booking.pending_expires_at?' · Resposta até '+new Intl.DateTimeFormat('pt-PT',{timeZone:'Europe/Lisbon',dateStyle:'short',timeStyle:'short'}).format(new Date(booking.pending_expires_at)):'')+(booking.rescheduled_at?' · Horário alterado':'');
    list.append(line);
   }
  }
  async function loadNotices(){
   const user=await currentUser();if(!user)return;
-  const {data,error}=await db.from('notification_events').select('id,created_at,booking_status,bookings(starts_at,services(name))').eq('recipient_id',user.id).eq('notification_kind','client_status').order('created_at',{ascending:false}).limit(20);
+  const {data,error}=await db.from('notification_events').select('id,created_at,booking_status,bookings(starts_at,status_reason,rescheduled_at,services(name))').eq('recipient_id',user.id).eq('notification_kind','client_status').order('created_at',{ascending:false}).limit(20);
   const list=document.getElementById('clientNoticeList');list.replaceChildren();
   if(error){list.textContent='Não foi possível atualizar os avisos. Tente novamente.';return}
   if(!data.length){list.textContent='As respostas da Ana vão aparecer aqui.';return}
-  for(const item of data){const line=document.createElement('p');const booking=item.bookings;line.textContent=({confirmed:'Marcação confirmada',declined:'Pedido recusado',cancelled:'Marcação cancelada'})[item.booking_status]+' · '+(booking?.services?.name||'Serviço')+' · '+(booking?new Intl.DateTimeFormat('pt-PT',{timeZone:'Europe/Lisbon',dateStyle:'medium',timeStyle:'short'}).format(new Date(booking.starts_at)):'');list.append(line)}
+  for(const item of data){const line=document.createElement('p');const booking=item.bookings;line.textContent=(booking?.status_reason==='pending_expired'?'Prazo de confirmação terminado':({confirmed:'Marcação confirmada',declined:'Pedido recusado',cancelled:'Marcação cancelada'})[item.booking_status])+' · '+(booking?.services?.name||'Serviço')+' · '+(booking?new Intl.DateTimeFormat('pt-PT',{timeZone:'Europe/Lisbon',dateStyle:'medium',timeStyle:'short'}).format(new Date(booking.starts_at)):'');list.append(line)}
  }
  async function refreshAccount(){await Promise.all([loadMyBookings(),loadNotices()])}
  document.getElementById('enableClientPush').onclick=async()=>{
@@ -80,13 +88,17 @@ if(!db){
   const user=await currentUser();
   await updateAnaAccess(user);
   document.getElementById('account').hidden=!!user;
+  document.getElementById('bookingLogin').hidden=!!user;
+  document.getElementById('accountSignedIn').hidden=!user;
+  document.getElementById('openAccount').textContent=user?'A minha conta':'Entrar';
   document.getElementById('clientSignOut').hidden=!user;
   document.getElementById('privacyControls').hidden=!user;
   await refreshAccount();
   message('loginStatus',user?'Sessão iniciada. Pode enviar o pedido.':'Entre com email e palavra-passe para enviar o pedido.');
  };
- bindLogin('clientEmail','loginStatus',updateLogin);
- document.getElementById('clientSignOut').onclick=async()=>{await signOutDevice();await updateLogin()};
+ bindLogin('clientEmail','accountStatus',async()=>{await updateLogin();dialog.close();if(!anaAreaLink.hidden)location.href='admin.html'});
+ document.getElementById('clientSignOut').onclick=async()=>{await signOutDevice();await updateLogin();dialog.close()};
+ document.getElementById('accountSignOut').onclick=document.getElementById('clientSignOut').onclick;
  document.getElementById('submitDataRequest').onclick=async()=>{
   const button=document.getElementById('submitDataRequest');button.disabled=true;
   try{
@@ -101,7 +113,7 @@ if(!db){
   if(!document.getElementById('bookingPrivacy').checked){message('result','Leia e aceite o aviso de privacidade antes de enviar o pedido.');return}
   const name=document.getElementById('customerName'),phone=document.getElementById('customerPhone');
   if(!name.reportValidity()||!phone.reportValidity())return;
-  if(!await currentUser()){message('result','Entre na sua conta antes de enviar o pedido.');return}
+  if(!await currentUser()){message('result','Entre na sua conta antes de enviar o pedido.');openAccount();return}
   const button=document.getElementById('review');submitting=true;button.disabled=true;
   try{
    const {data,error}=await db.rpc('request_booking_accepted',{p_service:selected.id,p_day:document.getElementById('date').value,p_time:time,p_name:name.value,p_phone:phone.value,p_privacy_accepted:document.getElementById('bookingPrivacy').checked,p_privacy_version:'2026-11-20'});
