@@ -1,4 +1,5 @@
-import {db,bindLogin,recoveryLink,currentUser,message,registerWorker} from './backend.js';
+import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice} from './backend.js';
+import {followUpControls} from './follow-up.js';
 import {initManualBookings} from './admin-create.js';
 import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings} from './agenda.js';
 let authorized = false;
@@ -8,7 +9,7 @@ const today = lisbonDay(new Date());
 const requestedDay = new URLSearchParams(location.search).get('day');
 $('agendaDate').value = /^\d{4}-\d{2}-\d{2}$/.test(requestedDay || '') ? requestedDay : today;
 $('calendarMonth').value = $('agendaDate').value.slice(0,7);
-$('signOut').onclick = async () => {await db.auth.signOut();location.reload()};
+$('signOut').onclick = async () => {await signOutDevice();location.reload()};
 function card(booking, showDay = false) {
  const article=document.createElement('article');
  const title=document.createElement('h3');
@@ -34,6 +35,7 @@ function card(booking, showDay = false) {
 
  const phone=document.createElement('a');phone.href='tel:+'+internationalPhone(booking.phone);phone.textContent='Ligar';actions.append(phone);
  article.append(title,details,state,actions);
+ if(booking.status==='confirmed')article.append(followUpControls(booking));
  return article;
 }
 function selectDay(day) {
@@ -117,15 +119,7 @@ setInterval(()=>{if(authorized&&!document.hidden)load()},30000);
 $('enablePush').onclick=async()=>{
  try{
   if(!authorized)throw Error('Entre primeiro na conta da Ana.');
-  if(!('PushManager' in window)||!('Notification' in window))throw Error('Neste dispositivo, abra a app instalada no ecrã principal para ativar notificações.');
-  if(!window.ANA_CONFIG.vapidPublicKey)throw Error('As notificações ainda precisam de ser configuradas no servidor.');
-  const permission=await Notification.requestPermission();if(permission!=='granted')throw Error('As notificações não foram autorizadas. Pode alterar esta opção nas definições do telemóvel.');
-  await registerWorker();const reg=await navigator.serviceWorker.ready;
-  const encoded=window.ANA_CONFIG.vapidPublicKey.replace(/-/g,'+').replace(/_/g,'/');
-  const key=Uint8Array.from(atob(encoded+'='.repeat((4-encoded.length%4)%4)),c=>c.charCodeAt(0));
-  const sub=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
-  const user=await currentUser();const {error}=await db.from('push_subscriptions').upsert({endpoint:sub.endpoint,user_id:user.id,subscription:sub.toJSON()});
-  if(error)throw error;
+  await enablePush();
   message('pushStatus','Este telemóvel está registado para receber os pedidos e o resumo diário da agenda.');
  }catch(e){message('pushStatus',e.message)}
 };

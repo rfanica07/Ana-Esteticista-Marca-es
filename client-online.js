@@ -1,10 +1,11 @@
-import {db,bindLogin,recoveryLink,currentUser,message,registerWorker} from './backend.js';
+import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice} from './backend.js';
 registerWorker().catch(()=>{});
 const notice=document.querySelector('.notice');
 const form=document.getElementById('bookingForm');
 let slotsRequest=0,verifiedSelection=null,submitting=false;
+document.getElementById('bookingPrivacy').onchange=()=>summary();
 const baseSummary=summary;
-summary=function(){baseSummary();if(db)document.getElementById('review').disabled=submitting||!(selected&&time&&verifiedSelection===selected.id+'|'+document.getElementById('date').value)};
+summary=function(){baseSummary();if(db)document.getElementById('review').disabled=submitting||!document.getElementById('bookingPrivacy').checked||!(selected&&time&&verifiedSelection===selected.id+'|'+document.getElementById('date').value)};
 if(!db){
  notice.textContent='Demonstração · A ligação à base de dados ainda não foi ativada. Não são enviados pedidos.';
  form.hidden=true;
@@ -32,6 +33,7 @@ if(!db){
   const user=await currentUser();
   const section=document.getElementById('myBookings');
   section.hidden=!user;
+  document.getElementById('clientNotifications').hidden=!user;
   if(!user)return;
   const {data,error}=await db.from('bookings').select('id,starts_at,status,services(name)').eq('customer_id',user.id).gte('starts_at',new Date().toISOString()).order('starts_at').limit(50);
   const list=document.getElementById('myBookingList');list.replaceChildren();
@@ -43,17 +45,30 @@ if(!db){
    list.append(line);
   }
  }
+ async function loadNotices(){
+  const user=await currentUser();if(!user)return;
+  const {data,error}=await db.from('notification_events').select('id,created_at,booking_status,bookings(starts_at,services(name))').eq('recipient_id',user.id).eq('notification_kind','client_status').order('created_at',{ascending:false}).limit(20);
+  const list=document.getElementById('clientNoticeList');list.replaceChildren();
+  if(error){list.textContent='Não foi possível atualizar os avisos. Tente novamente.';return}
+  if(!data.length){list.textContent='As respostas da Ana vão aparecer aqui.';return}
+  for(const item of data){const line=document.createElement('p');const booking=item.bookings;line.textContent=({confirmed:'Marcação confirmada',declined:'Pedido recusado',cancelled:'Marcação cancelada'})[item.booking_status]+' · '+(booking?.services?.name||'Serviço')+' · '+(booking?new Intl.DateTimeFormat('pt-PT',{timeZone:'Europe/Lisbon',dateStyle:'medium',timeStyle:'short'}).format(new Date(booking.starts_at)):'');list.append(line)}
+ }
+ async function refreshAccount(){await Promise.all([loadMyBookings(),loadNotices()])}
+ document.getElementById('enableClientPush').onclick=async()=>{
+  const button=document.getElementById('enableClientPush');button.disabled=true;
+  try{await enablePush();message('clientPushStatus','Este telemóvel está registado para receber as respostas da Ana.')}catch(error){message('clientPushStatus',error.message)}finally{button.disabled=false}
+ };
  const updateLogin=async()=>{
   if(recoveryLink)return;
   const user=await currentUser();
   document.getElementById('account').hidden=!!user;
   document.getElementById('clientSignOut').hidden=!user;
   document.getElementById('privacyControls').hidden=!user;
-  await loadMyBookings();
+  await refreshAccount();
   message('loginStatus',user?'Sessão iniciada. Pode enviar o pedido.':'Entre com email e palavra-passe para enviar o pedido.');
  };
  bindLogin('clientEmail','loginStatus',updateLogin);
- document.getElementById('clientSignOut').onclick=async()=>{await db.auth.signOut();await updateLogin()};
+ document.getElementById('clientSignOut').onclick=async()=>{await signOutDevice();await updateLogin()};
  document.getElementById('submitDataRequest').onclick=async()=>{
   const button=document.getElementById('submitDataRequest');button.disabled=true;
   try{
@@ -65,20 +80,21 @@ if(!db){
  await updateLogin();
  document.getElementById('review').onclick=async()=>{
   if(submitting||!selected||!time||verifiedSelection!==selected.id+'|'+document.getElementById('date').value)return;
-  if(!document.getElementById('bookingPrivacy').checked){message('result','Leia o aviso de privacidade e assinale que tomou conhecimento.');return}
+  if(!document.getElementById('bookingPrivacy').checked){message('result','Leia e aceite o aviso de privacidade antes de enviar o pedido.');return}
   const name=document.getElementById('customerName'),phone=document.getElementById('customerPhone');
   if(!name.reportValidity()||!phone.reportValidity())return;
   if(!await currentUser()){message('result','Entre na sua conta antes de enviar o pedido.');return}
   const button=document.getElementById('review');submitting=true;button.disabled=true;
   try{
-   const {error:privacyError}=await db.rpc('acknowledge_privacy',{p_version:'2026-11-20',p_purpose:'booking'});
-   if(privacyError)throw privacyError;
-   const {data,error}=await db.rpc('request_booking',{p_service:selected.id,p_day:document.getElementById('date').value,p_time:time,p_name:name.value,p_phone:phone.value});
+   const {data,error}=await db.rpc('request_booking_accepted',{p_service:selected.id,p_day:document.getElementById('date').value,p_time:time,p_name:name.value,p_phone:phone.value,p_privacy_accepted:document.getElementById('bookingPrivacy').checked,p_privacy_version:'2026-11-20'});
    if(error)throw error;
-   message('result','Pedido recebido. Referência: '+data+'. Aguarde a confirmação da Ana.');name.value='';phone.value='';await renderSlots();await loadMyBookings();
+   message('result','Pedido recebido. Referência: '+data+'. Aguarde a confirmação da Ana.');name.value='';phone.value='';document.getElementById('bookingPrivacy').checked=false;await renderSlots();await loadMyBookings();
   }catch(e){message('result','O pedido não foi confirmado: '+e.message);await renderSlots()}
   finally{submitting=false;summary()}
  };
- document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadMyBookings()});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshAccount()});
+ window.addEventListener('focus',()=>refreshAccount());
+ navigator.serviceWorker?.addEventListener('message',event=>{if(event.data?.type==='booking-update')refreshAccount()});
+ setInterval(()=>{if(!document.hidden)refreshAccount()},30000);
  summary();
 }

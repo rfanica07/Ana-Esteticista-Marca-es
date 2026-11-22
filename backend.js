@@ -61,3 +61,23 @@ export function bindLogin(emailId,statusId,onLogin){
 }
 export async function currentUser(){if(!db)return null;const {data,error}=await db.auth.getUser();return error?null:data.user}
 export async function registerWorker(){if('serviceWorker' in navigator&&location.protocol==='https:')return navigator.serviceWorker.register('./sw.js',{scope:'./'})}
+export async function enablePush(){
+ if(!('PushManager' in window)||!('Notification' in window))throw Error('Abra a app instalada no ecrã principal para ativar notificações. No iPhone, use Partilhar e Adicionar ao ecrã principal.');
+ if(!cfg.vapidPublicKey)throw Error('As notificações ainda precisam de ser configuradas.');
+ const user=await currentUser();if(!user)throw Error('Entre primeiro na sua conta.');
+ const permission=await Notification.requestPermission();
+ if(permission!=='granted')throw Error('Autorize as notificações nas definições do telemóvel para receber os avisos.');
+ await registerWorker();const reg=await navigator.serviceWorker.ready;
+ const encoded=cfg.vapidPublicKey.replace(/-/g,'+').replace(/_/g,'/');
+ const key=Uint8Array.from(atob(encoded+'='.repeat((4-encoded.length%4)%4)),c=>c.charCodeAt(0));
+ const sub=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+ const {error}=await db.from('push_subscriptions').upsert({endpoint:sub.endpoint,user_id:user.id,subscription:sub.toJSON()});
+ if(error)throw Error('Não foi possível registar este dispositivo. Termine a sessão e volte a entrar para tentar novamente.');
+}
+export async function signOutDevice(){
+ if('serviceWorker' in navigator){
+  const reg=await navigator.serviceWorker.getRegistration('./');const sub=await reg?.pushManager?.getSubscription();
+  if(sub){await db.from('push_subscriptions').delete().eq('endpoint',sub.endpoint);await sub.unsubscribe()}
+ }
+ await db.auth.signOut();
+}
