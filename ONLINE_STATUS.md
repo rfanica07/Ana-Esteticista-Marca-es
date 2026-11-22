@@ -1,5 +1,6 @@
 # Endereço de produção — 22-11-2026
 
+- Convite para instalar a app: ao guardar uma marcação com um telefone novo, a área da Ana apresenta uma mensagem personalizada com o link público e os passos para iPhone/Android. Também pode abrir ou copiar o convite em Contactos das clientes. O envio no WhatsApp é manual.
 - Cabeçalho público: Luisa & Ana, com monograma L&A, Instagram @luisiana_cabeleireiro_estetica, acesso às marcações e partilha do link. Paleta original preservada (creme #fffaf4, rosa #ba7184 e texto #443337).
 - Aviso de follow-up ativo no Supabase: `ana-follow-up-notice` verifica o horário de Lisboa e cria um único evento às 13:30, exceto terça e sábado, apenas havendo marcações confirmadas para amanhã. A notificação abre a agenda do dia seguinte. Não envia mensagens de WhatsApp automaticamente. Testes locais (12) e testes transacionais de horário, folgas e idempotência aprovados.
 - App pública: https://ana-esteticista.pages.dev/

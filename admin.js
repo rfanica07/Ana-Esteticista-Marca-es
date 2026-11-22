@@ -1,9 +1,13 @@
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice} from './backend.js?v=20261122';
+import {appInvitationControls} from './app-invitation.js?v=20261122-invite';
 import {followUpControls} from './follow-up.js';
-import {initManualBookings} from './admin-create.js';
+import {initManualBookings} from './admin-create.js?v=20261122-invite';
 import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings} from './agenda.js';
 let authorized = false;
 let request = 0;
+let knownContactPhones=new Set();
+let contactsLoaded=false;
+let contactRenderKey=null;
 const $ = id => document.getElementById(id);
 const today = lisbonDay(new Date());
 const requestedDay = new URLSearchParams(location.search).get('day');
@@ -63,12 +67,16 @@ function renderMonth(bookings) {
 async function loadContacts() {
  const {data,error}=await db.from('customer_contacts').select('name,phone,updated_at').order('name').limit(1000);
  if(error){message('contactStatus','Não foi possível carregar os contactos.');return}
+ knownContactPhones=new Set(data.map(item=>internationalPhone(item.phone)));contactsLoaded=true;
  const query=$('contactSearch').value.toLocaleLowerCase('pt-PT');
+ const renderKey=JSON.stringify([query,data]);
+ if(renderKey===contactRenderKey)return;
+ contactRenderKey=renderKey;
  $('contacts').replaceChildren();
  for(const contact of data.filter(item=>(item.name+' '+item.phone).toLocaleLowerCase('pt-PT').includes(query))) {
   const row=document.createElement('p');const name=document.createElement('strong');name.textContent=contact.name+' · ';
   const phone=document.createElement('a');phone.textContent=contact.phone;phone.href='tel:+'+internationalPhone(contact.phone);
-  row.append(name,phone);$('contacts').append(row);
+  row.append(name,phone);const entry=document.createElement('div');entry.className='contact-entry';entry.append(row,appInvitationControls(contact));$('contacts').append(entry);
  }
  message('contactStatus',data.length+' contactos guardados. Números nacionais de 9 dígitos usam +351.');
 }
@@ -128,5 +136,5 @@ else{
  bindLogin('email','status',()=>location.reload());
  const user=await currentUser();
  if(user&&!recoveryLink){const {data,error}=await db.from('staff').select('user_id').eq('user_id',user.id).maybeSingle();authorized=!!data&&!error;
- if(authorized){$('login').hidden=true;$('agenda').hidden=false;registerWorker().catch(()=>{});await initManualBookings({db,onSaved:async day=>{$('agendaDate').value=day;await load()}});await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
+ if(authorized){$('login').hidden=true;$('agenda').hidden=false;registerWorker().catch(()=>{});await initManualBookings({db,isKnownContact:phone=>contactsLoaded&&knownContactPhones.has(internationalPhone(phone)),onSaved:async(day,contact)=>{const isNew=contact.isNew;$('manualInvite').replaceChildren();if(isNew){$('manualInvite').append(appInvitationControls(contact,{open:true}));$('manualInvite').hidden=false}else $('manualInvite').hidden=true;$('agendaDate').value=day;await load()}});await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
 }
