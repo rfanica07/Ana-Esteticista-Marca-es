@@ -2,7 +2,42 @@ export async function initManualBookings({db,onSaved,isKnownContact=()=>false}) 
  const el=id=>document.getElementById(id);
  const form=el('manualForm'),fields=el('manualFields'),service=el('manualService'),day=el('manualDay'),time=el('manualTime'),submit=el('manualSubmit');
  const status=text=>{el('manualStatus').textContent=text};
- let request=0,verifiedKey=null,busy=false;
+ let request=0,verifiedKey=null,busy=false,contacts=[],contactsReady=false,mode='new',selectedPhone='';
+ const name=el('manualName'),phone=el('manualPhone'),picker=el('manualContact'),search=el('manualContactSearch');
+ const key=value=>String(value||'').replace(/\D/g,'').replace(/^00/,'').replace(/^(\d{9})$/,'351$1');
+ const selected=()=>contacts.find(contact=>key(contact.phone)===selectedPhone);
+ function renderContacts(){
+  const query=search.value.trim().toLocaleLowerCase('pt-PT');
+  const digits=query.replace(/\D/g,'');
+  const matches=contacts.filter(contact=>(contact.name+' '+contact.phone).toLocaleLowerCase('pt-PT').includes(query)||(digits&&key(contact.phone).includes(digits)));
+  const visible=matches.slice();const chosen=selected();
+  if(chosen&&!visible.includes(chosen))visible.unshift(chosen);
+  const first=document.createElement('option');first.value='';first.textContent=!contactsReady?'A carregar contactos…':!contacts.length?'Ainda não há clientes guardadas':'Selecione a cliente';picker.replaceChildren(first);
+  for(const contact of visible){const option=document.createElement('option');option.value=key(contact.phone);option.textContent=contact.name+' · '+contact.phone;picker.append(option)}
+  picker.value=selectedPhone;picker.disabled=!contactsReady||!contacts.length;
+  el('manualContactHint').textContent=!contactsReady?'A carregar a lista de clientes…':!contacts.length?'Escolha Nova cliente para guardar a primeira marcação.':query&&!matches.length?'Nenhuma cliente encontrada. Experimente outro nome ou telefone.':matches.length+' clientes na lista. Escolha uma para preencher os dados.';
+ }
+ function setMode(next){
+  if(busy||next===mode)return;
+  mode=next;selectedPhone='';name.value='';phone.value='';search.value='';
+  el('manualExistingFields').hidden=mode!=='existing';picker.required=mode==='existing';
+  name.readOnly=phone.readOnly=mode==='existing';
+  el('manualNewClient').setAttribute('aria-pressed',String(mode==='new'));el('manualExistingClient').setAttribute('aria-pressed',String(mode==='existing'));
+  renderContacts();el('manualInvite').hidden=true;
+ }
+ el('manualNewClient').onclick=()=>setMode('new');el('manualExistingClient').onclick=()=>setMode('existing');
+ search.oninput=renderContacts;
+ picker.onchange=()=>{selectedPhone=picker.value;const contact=selected();name.value=contact?.name||'';phone.value=contact?.phone||'';el('manualInvite').hidden=true};
+ const controller={
+  setContacts(items){contacts=items;contactsReady=true;if(selectedPhone&&!selected()){selectedPhone='';name.value='';phone.value=''}renderContacts()},
+  startForContact(contact){
+   if(busy)return false;
+   if(!contacts.some(item=>key(item.phone)===key(contact.phone)))contacts.push(contact);
+   setMode('existing');selectedPhone=key(contact.phone);search.value='';renderContacts();name.value=contact.name;phone.value=contact.phone;
+   el('manualBooking').open=true;el('manualBooking').scrollIntoView({behavior:'smooth',block:'start'});service.focus();
+   return true;
+  }
+ };
  const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  day.min=today;day.value=today;
  const lastDay=new Date(today+'T12:00:00Z');lastDay.setUTCDate(lastDay.getUTCDate()+180);day.max=lastDay.toISOString().slice(0,10);
@@ -29,14 +64,16 @@ export async function initManualBookings({db,onSaved,isKnownContact=()=>false}) 
  form.onsubmit=async event=>{
   event.preventDefault();
   if(busy||!form.reportValidity()||!time.value||verifiedKey!==service.value+'|'+day.value)return;
+  if(mode==='existing'&&!selected()){status('Selecione uma cliente da lista.');return}
   busy=true;fields.disabled=true;submit.disabled=true;status('A guardar marcação…');
   const chosenDay=day.value;
-  const contact={name:el('manualName').value.trim(),phone:el('manualPhone').value.trim()};
+  const chosen=mode==='existing'?selected():null;
+  const contact={name:chosen?chosen.name:name.value.trim(),phone:chosen?chosen.phone:phone.value.trim()};
   contact.isNew=!isKnownContact(contact.phone);
   try{
    const {error}=await db.rpc('create_staff_booking',{p_service:service.value,p_day:chosenDay,p_time:time.value,p_name:contact.name,p_phone:contact.phone});
    if(error)throw error;
-   el('manualName').value='';el('manualPhone').value='';
+   name.value='';phone.value='';selectedPhone='';search.value='';renderContacts();
   }catch(error){
    busy=false;fields.disabled=false;await loadSlots();
    status(['PGRST202','42883'].includes(error.code)?'A criação de marcações ainda aguarda ativação na base de dados.':'Não foi possível guardar: '+error.message);
@@ -54,4 +91,5 @@ export async function initManualBookings({db,onSaved,isKnownContact=()=>false}) 
   fields.disabled=false;time.disabled=true;submit.disabled=true;
   status(data.length?'Escolha o serviço e os dados da cliente.':'Ainda não existem serviços configurados.');
  }catch{status('Não foi possível carregar os serviços. Atualize a página para tentar novamente.')}
+ return controller;
 }
