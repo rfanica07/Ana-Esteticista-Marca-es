@@ -1,7 +1,7 @@
 import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261122-improvements';
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice,devicePushState} from './backend.js?v=20261122-recovery';
 import {appInvitationControls} from './app-invitation.js?v=20261122-invite';
-import {followUpControls,followUpBookings,bookingStage} from './follow-up.js?v=20261123-stages';
+import {followUpControls,followUpBookings,bookingStage} from './follow-up.js?v=20261123-all-dates';
 import {initManualBookings} from './admin-create.js?v=20261123-stages';
 import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings} from './agenda.js';
 let authorized = false;
@@ -90,6 +90,13 @@ async function loadContacts() {
  }
  message('contactStatus',data.length+' contactos guardados. Números nacionais de 9 dígitos usam +351.');
 }
+async function loadMessageBookings(fields){
+ const items=[];
+ for(let offset=0;;offset+=1000){
+  const {data,error}=await db.from('bookings').select(fields).eq('status','confirmed').order('starts_at').order('id').range(offset,offset+999);
+  if(error)return {error};items.push(...data);if(data.length<1000)return {data:items,error:null};
+ }
+}
 async function load() {
  if(!authorized)return;
  const current=++request;
@@ -97,31 +104,29 @@ async function load() {
  const day=$('agendaDate').value;
  const month=$('calendarMonth').value;
  if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!/^\d{4}-\d{2}$/.test(month)){message('status','Escolha um dia e um mês válidos.');return}
- const start=new Date(day+'T00:00:00Z');start.setUTCDate(start.getUTCDate()-1);
- const end=new Date(day+'T00:00:00Z');end.setUTCDate(end.getUTCDate()+2);
  const monthStart=new Date(month+'-01T00:00:00Z');monthStart.setUTCDate(monthStart.getUTCDate()-1);
  const monthEnd=new Date(month+'-01T00:00:00Z');monthEnd.setUTCMonth(monthEnd.getUTCMonth()+1);monthEnd.setUTCDate(2);
  const fields='*,services(name,category)';
  const [daily,pending,monthly]=await Promise.all([
-  db.from('bookings').select(fields).gte('starts_at',start.toISOString()).lt('starts_at',end.toISOString()).order('starts_at'),
+  loadMessageBookings(fields),
   db.from('bookings').select(fields).eq('status','pending').gte('starts_at',new Date().toISOString()).order('starts_at').limit(200),
   db.from('bookings').select('starts_at,status').gte('starts_at',monthStart.toISOString()).lt('starts_at',monthEnd.toISOString()).order('starts_at')
  ]);
  if(current!==request)return;
  if(daily.error||pending.error||monthly.error){message('status','Não foi possível atualizar a agenda. Toque em Atualizar agenda.');return}
- const selected=daily.data.filter(booking=>lisbonDay(booking.starts_at)===day);
+ const selected=daily.data;
  const visible=followUpBookings(selected,$('messageFilter').value);
  const dailyKey=JSON.stringify([day,visible,$('messageFilter').value]);
- if(dailyKey!==dailyRenderKey){$('bookings').replaceChildren(...visible.map(booking=>card(booking)));dailyRenderKey=dailyKey}
- message('count',fullDate(day+'T12:00:00Z')+' · '+visible.length+' '+({unsent:'mensagens por enviar',sent:'mensagens enviadas',all:'marcações'})[$('messageFilter').value]);
+ if(dailyKey!==dailyRenderKey){$('bookings').replaceChildren(...visible.map(booking=>card(booking,true)));dailyRenderKey=dailyKey}
+ message('count',visible.length+' '+({unsent:'mensagens por enviar',sent:'mensagens enviadas',all:'marcações'})[$('messageFilter').value]);
  $('messageEmpty').hidden=visible.length>0;
- $('messageEmpty').textContent=({unsent:'Tudo em dia! Não há mensagens por enviar para este dia.',sent:'Ainda não há mensagens marcadas como enviadas para este dia.',all:'Não há marcações para este dia.'})[$('messageFilter').value];
+ $('messageEmpty').textContent=({unsent:'Tudo em dia! Não há mensagens por enviar.',sent:'Ainda não há mensagens marcadas como enviadas.',all:'Não há marcações.'})[$('messageFilter').value];
  const pendingItems=pendingBookings(pending.data);
  message('pendingCount',pendingItems.length ? pendingItems.length+' pedidos por confirmar' : 'Sem pedidos pendentes');
  const pendingKey=JSON.stringify(pendingItems);
  if(pendingKey!==pendingRenderKey){$('pendingBookings').replaceChildren(...pendingItems.map(booking=>card(booking,true)));pendingRenderKey=pendingKey}
  renderMonth(monthly.data);
- message('status','Agenda atualizada. Os pedidos de todos os dias aparecem em Pedidos pendentes.');
+ message('status','Agenda atualizada. A lista de mensagens inclui marcações de todos os dias.');
  await Promise.all([loadContacts(),refreshNotificationHealth(db)]);
  const {data:requests,error:requestError}=await db.from('data_requests').select('id,request_type,details,created_at,status,user_id,requester_email').eq('status','pending').order('created_at');
  $('dataRequests').replaceChildren();

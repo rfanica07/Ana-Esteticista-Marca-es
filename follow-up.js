@@ -11,7 +11,7 @@ export function bookingStage(booking){
  return booking.customer_confirmed_at?'Confirmado':booking.follow_up_sent_at?'Lembrete enviado':'Marcado';
 }
 export function followUpBookings(bookings,filter='unsent'){
- return bookings.filter(booking=>filter==='all'||(booking.status==='confirmed'&&new Date(booking.starts_at)>new Date()&&(filter==='sent'?!!booking.follow_up_sent_at:!booking.follow_up_sent_at)));
+ return bookings.filter(booking=>filter==='all'||(booking.status==='confirmed'&&(filter==='sent'?!!booking.follow_up_sent_at:(!booking.follow_up_sent_at&&new Date(booking.starts_at)>new Date()))));
 }
 export function followUpControls(booking,{db,onSaved=()=>{}}={}){
  const panel=document.createElement('details');panel.className='follow-up';
