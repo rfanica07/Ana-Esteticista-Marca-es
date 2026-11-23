@@ -2,8 +2,8 @@ import {initAppUpdates} from './admin-update.js?v=20261123';
 import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261122-improvements';
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice,devicePushState} from './backend.js?v=20261122-recovery';
 import {appInvitationControls} from './app-invitation.js?v=20261122-invite';
-import {followUpControls,followUpBookings,bookingStage} from './follow-up.js?v=20261123-emoji';
-import {initManualBookings} from './admin-create.js?v=20261123-stages';
+import {followUpControls,followUpBookings,bookingStage} from './follow-up.js?v=20261123-service-names';
+import {initManualBookings} from './admin-create.js?v=20261123-client-notices';
 import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings} from './agenda.js';
 let authorized = false;
 let agendaTools,manualBookings;
@@ -76,7 +76,7 @@ function renderMonth(bookings) {
  }
 }
 async function loadContacts() {
- const {data,error}=await db.from('customer_contacts').select('name,phone,updated_at').order('name').limit(1000);
+ const {data,error}=await db.from('customer_contacts').select('name,phone,updated_at,customer_user_id').order('name').limit(1000);
  if(error){message('contactStatus','Não foi possível carregar os contactos.');return}
  manualBookings?.setContacts(data);
  knownContactPhones=new Set(data.map(item=>internationalPhone(item.phone)));contactsLoaded=true;
@@ -88,7 +88,12 @@ async function loadContacts() {
  for(const contact of data.filter(item=>(item.name+' '+item.phone).toLocaleLowerCase('pt-PT').includes(query))) {
   const row=document.createElement('p');const name=document.createElement('strong');name.textContent=contact.name+' · ';
   const phone=document.createElement('a');phone.textContent=contact.phone;phone.href='tel:+'+internationalPhone(contact.phone);
-  row.append(name,phone);const entry=document.createElement('div');entry.className='contact-entry';const book=document.createElement('button');book.type='button';book.className='primary contact-booking';book.textContent='Fazer marcação';book.setAttribute('aria-label','Fazer marcação para '+contact.name);book.onclick=()=>{if(!manualBookings?.startForContact(contact))message('contactStatus','Aguarde que a marcação atual termine de guardar.')};entry.append(row,book,appInvitationControls(contact));$('contacts').append(entry);
+  row.append(name,phone);const entry=document.createElement('div');entry.className='contact-entry';const book=document.createElement('button');book.type='button';book.className='primary contact-booking';book.textContent='Fazer marcação';book.setAttribute('aria-label','Fazer marcação para '+contact.name);book.onclick=()=>{if(!manualBookings?.startForContact(contact))message('contactStatus','Aguarde que a marcação atual termine de guardar.')};const account=document.createElement('details');const summary=document.createElement('summary');summary.textContent=contact.customer_user_id?'✓ Conta da cliente ligada':'Ligar conta para receber notificações';
+  const help=document.createElement('p');help.className='muted';help.textContent='Indique o email com que esta cliente entra na app. A ligação permite avisá-la das marcações e cancelamentos feitos pela Ana. As notificações precisam de estar ativadas no telemóvel da cliente.';
+  const email=document.createElement('input');email.type='email';email.placeholder='Email da conta da cliente';email.required=true;email.setAttribute('aria-label','Email da conta de '+contact.name);
+  const link=document.createElement('button');link.type='button';link.textContent='Ligar conta';const state=document.createElement('p');state.setAttribute('role','status');
+  link.onclick=async()=>{if(!email.reportValidity())return;link.disabled=true;const {error}=await db.rpc('link_contact_account',{p_phone:contact.phone,p_email:email.value.trim()});if(error){state.textContent=error.message;link.disabled=false}else{state.textContent='Conta ligada. As próximas marcações e cancelamentos serão avisados na app.';summary.textContent='✓ Conta da cliente ligada';email.value='';contactRenderKey=null;await loadContacts()}};
+  account.append(summary,help,email,link,state);entry.append(row,book,account,appInvitationControls(contact));$('contacts').append(entry);
  }
  message('contactStatus',data.length+' contactos guardados. Números nacionais de 9 dígitos usam +351.');
 }
