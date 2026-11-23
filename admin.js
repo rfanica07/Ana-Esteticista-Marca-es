@@ -1,8 +1,8 @@
 import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261122-improvements';
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice,devicePushState} from './backend.js?v=20261122-recovery';
 import {appInvitationControls} from './app-invitation.js?v=20261122-invite';
-import {followUpControls,followUpBookings} from './follow-up.js?v=20261123-sent';
-import {initManualBookings} from './admin-create.js?v=20261123-contacts';
+import {followUpControls,followUpBookings,bookingStage} from './follow-up.js?v=20261123-stages';
+import {initManualBookings} from './admin-create.js?v=20261123-stages';
 import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings} from './agenda.js';
 let authorized = false;
 let agendaTools,manualBookings;
@@ -25,7 +25,7 @@ function card(booking, showDay = false) {
  details.textContent=(booking.services?.name || 'Serviço')+' · '+booking.phone;
  const state=document.createElement('p');
  state.className='status-badge status-'+booking.status;
- state.textContent=(booking.status_reason==='pending_expired'?'Prazo terminado':({pending:'Aguarda confirmação',confirmed:'Confirmada',declined:'Recusada',cancelled:'Cancelada'})[booking.status]);
+ state.textContent=(booking.status_reason==='pending_expired'?'Prazo terminado':bookingStage(booking));
  const actions=document.createElement('div');actions.className='actions';
  const transitions=new Date(booking.starts_at)>new Date()?booking.status==='pending' ? [['confirmed','Confirmar'],['declined','Recusar']] : booking.status==='confirmed' ? [['cancelled','Cancelar']] : []:[];
  for(const [status,label] of transitions) {

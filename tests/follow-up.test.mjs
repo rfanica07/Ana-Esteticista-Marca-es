@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {followUpMessage,followUpLink,followUpBookings} from '../follow-up.js';
+import {followUpMessage,followUpLink,followUpBookings,bookingStage} from '../follow-up.js';
 test('manual reminder uses Lisbon time, service, date and normalized recipient',()=>{
  const booking={customer_name:'Maria & Inês',phone:'912 345 678',starts_at:'2026-07-10T08:30:00Z',services:{name:'Mãos & pés'}};
  const text=followUpMessage(booking),url=new URL(followUpLink(booking));
@@ -16,4 +16,8 @@ test('unsent list excludes sent, cancelled and past bookings while preserving ti
  assert.equal(followUpBookings(rows,'all').length,5);
  rows[0].follow_up_sent_at=later;
  assert.deepEqual(followUpBookings(rows).map(b=>b.id),[5]);
+});
+
+test('customer confirmation stages require explicit confirmation after the reminder',()=>{
+ const b={status:'confirmed'};assert.equal(bookingStage(b),'Marcado');b.follow_up_sent_at='2026-11-23';assert.equal(bookingStage(b),'Lembrete enviado');b.customer_confirmed_at='2026-11-23';assert.equal(bookingStage(b),'Confirmado');
 });

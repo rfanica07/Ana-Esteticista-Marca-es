@@ -50,7 +50,7 @@ assert.equal(savedDay,'2026-11-03');
 assert.equal(savedContact.name,'Cliente de teste');assert.equal(savedContact.phone,'900000000');assert.equal(savedContact.isNew,true);
 assert.equal(elements.manualName.value,'');
 assert.equal(elements.manualSubmit.disabled,true);
-assert.match(elements.manualStatus.textContent,/confirmada e guardada/);
+assert.match(elements.manualStatus.textContent,/estado Marcado/);
 elements.manualDay.value='2026-11-05';const refresh=elements.manualDay.onchange();
 waiting[3].resolve({data:[{slot:'09:00'}],error:null});await refresh;
 elements.manualTime.value='09:00';elements.manualTime.onchange();elements.manualName.value='Cliente de teste';elements.manualPhone.value='900000000';

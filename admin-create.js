@@ -56,7 +56,7 @@ export async function initManualBookings({db,onSaved,isKnownContact=()=>false}) 
    placeholder(data.length?'Escolha a hora':'Sem horários neste dia');
    for(const {slot} of data){const option=document.createElement('option');option.value=slot;option.textContent=slot;time.append(option)}
    verifiedKey=key;time.disabled=!data.length;
-   status(data.length?'A marcação criada pela Ana fica logo confirmada.':'Sem horários disponíveis. Escolha outro dia.');
+   status(data.length?'A marcação fica com o estado Marcado. A confirmação da cliente é registada depois do lembrete.':'Sem horários disponíveis. Escolha outro dia.');
   }catch{if(current===request)status('Não foi possível consultar a agenda. Volte a escolher o dia para tentar novamente.')}
  }
  service.onchange=loadSlots;day.onchange=loadSlots;
@@ -80,7 +80,7 @@ export async function initManualBookings({db,onSaved,isKnownContact=()=>false}) 
    return;
   }
   busy=false;fields.disabled=false;await loadSlots();
-  status('Marcação confirmada e guardada na agenda.');
+  status('Marcação guardada na agenda com o estado Marcado.');
   try{await onSaved(chosenDay,contact)}catch{status('Marcação guardada. Toque em Atualizar agenda para a consultar.')}
  };
  try{
