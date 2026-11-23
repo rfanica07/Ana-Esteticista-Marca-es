@@ -1,3 +1,4 @@
+import {initAppUpdates} from './admin-update.js?v=20261123';
 import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261122-improvements';
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice,devicePushState} from './backend.js?v=20261122-recovery';
 import {appInvitationControls} from './app-invitation.js?v=20261122-invite';
@@ -12,6 +13,7 @@ let contactsLoaded=false;
 let contactRenderKey=null;
 let dailyRenderKey=null,pendingRenderKey=null;
 const $ = id => document.getElementById(id);
+initAppUpdates();
 const today = lisbonDay(new Date());
 const requestedDay = new URLSearchParams(location.search).get('day');
 let selectedDay = /^\d{4}-\d{2}-\d{2}$/.test(requestedDay || '') ? requestedDay : today;
@@ -137,7 +139,8 @@ async function load() {
  }
 }
 $('calendarMonth').onchange=load;
- $('messageFilter').onchange=load;
+ $('messageFilter').onchange=()=>{for(const button of document.querySelectorAll('[data-message-filter]'))button.setAttribute('aria-pressed',String(button.dataset.messageFilter===$('messageFilter').value));load()};
+ for(const button of document.querySelectorAll('[data-message-filter]'))button.onclick=()=>{$('messageFilter').value=button.dataset.messageFilter;$('messageFilter').onchange()};
 $('refresh').onclick=load;
 $('contactSearch').oninput=loadContacts;
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
