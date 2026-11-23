@@ -21,3 +21,8 @@ test('unsent list excludes sent, cancelled and past bookings while preserving ti
 test('customer confirmation stages require explicit confirmation after the reminder',()=>{
  const b={status:'confirmed'};assert.equal(bookingStage(b),'Marcado');b.follow_up_sent_at='2026-11-23';assert.equal(bookingStage(b),'Lembrete enviado');b.customer_confirmed_at='2026-11-23';assert.equal(bookingStage(b),'Confirmado');
 });
+
+test('message lists span dates and retain already sent reminders after the appointment',()=>{
+ const rows=[{id:1,status:'confirmed',starts_at:'2090-01-01T09:00:00Z'},{id:2,status:'confirmed',starts_at:'2090-02-01T09:00:00Z'},{id:3,status:'confirmed',starts_at:'2020-01-01T09:00:00Z',follow_up_sent_at:'2019-12-31T13:30:00Z'}];
+ assert.deepEqual(followUpBookings(rows,'unsent').map(b=>b.id),[1,2]);assert.deepEqual(followUpBookings(rows,'sent').map(b=>b.id),[3]);
+});
