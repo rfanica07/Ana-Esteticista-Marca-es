@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {serviceEmoji,followUpMessage,followUpLink,followUpBookings,bookingStage} from '../follow-up.js';
+import {serviceDescription,serviceEmoji,followUpMessage,followUpLink,followUpBookings,bookingStage} from '../follow-up.js';
 test('manual reminder uses Lisbon time, service, date and normalized recipient',()=>{
  const booking={customer_name:'Maria & Inês',phone:'912 345 678',starts_at:'2026-07-10T08:30:00Z',services:{name:'Mãos & pés'}};
  const text=followUpMessage(booking),url=new URL(followUpLink(booking));
@@ -52,4 +52,11 @@ test('approved message applies the service emoji, flower, clock and affectionate
   assert.equal(serviceEmoji(service),emoji);assert.ok(text.includes(service.name+' '+emoji));
   assert.match(text,/Ana Esteticista 🌸/);assert.match(text,/09:30 🕒/);assert.match(text,/Obrigada, beijinhos e até breve! 🌸$/);
  }
+});
+
+test('wax and laser keep the complete service name with a trailing emoji',()=>{
+ for(const name of ['Perna inteira','Virilhas','Axilas'])assert.equal(serviceDescription({name,category:'Cera'}),'Depilação a cera · '+name+' 🍯');
+ for(const name of ['Perna inteira','Axilas','Braços','Buço','Corpo todo','Virilha total'])assert.equal(serviceDescription({name,category:'Laser'}),'Depilação a laser · '+name+' ✨');
+ for(const name of ['Buço','Sobrancelhas'])assert.equal(serviceDescription({name,category:'Rosto'}),'Depilação a cera · '+name+' 🍯');
+ assert.equal(serviceDescription({name:'Manicure',category:'Mãos'}),'Manicure 💅');
 });

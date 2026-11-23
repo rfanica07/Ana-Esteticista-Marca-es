@@ -3,16 +3,24 @@ export function serviceEmoji(service={}){
  const normalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const category=normalize(service.category),name=normalize(service.name);
  if(category.includes('laser')||name.includes('laser'))return '✨';
- if(category.includes('cera')||name.includes('cera'))return '🍯';
+ if(category.includes('cera')||name.includes('cera')||/buco|sobrancelh/.test(name))return '🍯';
  if(category.includes('pes')||name.includes('pedicure'))return '🦶';
  if(category.includes('maos')||/manicure|unhas|gel/.test(name))return '💅';
  if(name.includes('limpeza')&&name.includes('pele'))return '🧖‍♀️';
  return '✨';
 }
+export function serviceDescription(service={}){
+ const name=String(service.name||'Atendimento').trim();
+ const normalized=(String(service.category||'')+' '+name).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ let label=name;
+ if(normalized.includes('laser')&&!/depila.*laser/.test(normalized.split(' ').slice(1).join(' ')))label='Depilação a laser · '+name;
+ else if((normalized.includes('cera')||/buco|sobrancelh/.test(normalized))&&!/depila.*cera/.test(name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()))label='Depilação a cera · '+name;
+ return label+' '+serviceEmoji(service);
+}
 export function followUpMessage(booking){
  return `Olá ${booking.customer_name}! É a Ana Esteticista 🌸
 
-A sua marcação de ${booking.services?.name||'atendimento'} ${serviceEmoji(booking.services)} está agendada para ${fullDate(booking.starts_at)}, às ${hour(booking.starts_at)} 🕒.
+A sua marcação de ${serviceDescription(booking.services)} está agendada para ${fullDate(booking.starts_at)}, às ${hour(booking.starts_at)} 🕒.
 
 Por favor, responda a esta mensagem para confirmar a sua presença. Se precisar de alterar ou cancelar, avise-me também por aqui.
 
