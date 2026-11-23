@@ -1,6 +1,22 @@
 import {fullDate,hour,internationalPhone} from './agenda.js';
+export function serviceEmoji(service={}){
+ const normalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ const category=normalize(service.category),name=normalize(service.name);
+ if(category.includes('laser')||name.includes('laser'))return '✨';
+ if(category.includes('cera')||name.includes('cera'))return '🍯';
+ if(category.includes('pes')||name.includes('pedicure'))return '🦶';
+ if(category.includes('maos')||/manicure|unhas|gel/.test(name))return '💅';
+ if(name.includes('limpeza')&&name.includes('pele'))return '🧖‍♀️';
+ return '✨';
+}
 export function followUpMessage(booking){
- return `Olá ${booking.customer_name}! É a Ana Esteticista. Lembro a sua marcação de ${booking.services?.name||'atendimento'} para ${fullDate(booking.starts_at)}, às ${hour(booking.starts_at)}. Por favor, confirme a sua marcação. Se precisar de alterar, responda a esta mensagem. Até breve!`;
+ return `Olá ${booking.customer_name}! É a Ana Esteticista 🌸
+
+A sua marcação de ${booking.services?.name||'atendimento'} ${serviceEmoji(booking.services)} está agendada para ${fullDate(booking.starts_at)}, às ${hour(booking.starts_at)} 🕒.
+
+Por favor, responda a esta mensagem para confirmar a sua presença. Se precisar de alterar ou cancelar, avise-me também por aqui.
+
+Obrigada, beijinhos e até breve! 🌸`;
 }
 export function followUpLink(booking,text=followUpMessage(booking)){
  const phone=internationalPhone(booking.phone);
