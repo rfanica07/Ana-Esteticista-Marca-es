@@ -1,7 +1,7 @@
 import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261122-improvements';
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice,devicePushState} from './backend.js?v=20261122-recovery';
 import {appInvitationControls} from './app-invitation.js?v=20261122-invite';
-import {followUpControls} from './follow-up.js?v=20261122-improvements';
+import {followUpControls,followUpBookings} from './follow-up.js?v=20261123-sent';
 import {initManualBookings} from './admin-create.js?v=20261123-contacts';
 import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings} from './agenda.js';
 let authorized = false;
@@ -110,9 +110,12 @@ async function load() {
  if(current!==request)return;
  if(daily.error||pending.error||monthly.error){message('status','Não foi possível atualizar a agenda. Toque em Atualizar agenda.');return}
  const selected=daily.data.filter(booking=>lisbonDay(booking.starts_at)===day);
- const dailyKey=JSON.stringify([day,selected]);
- if(dailyKey!==dailyRenderKey){$('bookings').replaceChildren(...selected.map(booking=>card(booking)));dailyRenderKey=dailyKey}
- message('count',fullDate(day+'T12:00:00Z')+' · '+selected.filter(b=>['pending','confirmed'].includes(b.status)).length+' marcações ativas');
+ const visible=followUpBookings(selected,$('messageFilter').value);
+ const dailyKey=JSON.stringify([day,visible,$('messageFilter').value]);
+ if(dailyKey!==dailyRenderKey){$('bookings').replaceChildren(...visible.map(booking=>card(booking)));dailyRenderKey=dailyKey}
+ message('count',fullDate(day+'T12:00:00Z')+' · '+visible.length+' '+({unsent:'mensagens por enviar',sent:'mensagens enviadas',all:'marcações'})[$('messageFilter').value]);
+ $('messageEmpty').hidden=visible.length>0;
+ $('messageEmpty').textContent=({unsent:'Tudo em dia! Não há mensagens por enviar para este dia.',sent:'Ainda não há mensagens marcadas como enviadas para este dia.',all:'Não há marcações para este dia.'})[$('messageFilter').value];
  const pendingItems=pendingBookings(pending.data);
  message('pendingCount',pendingItems.length ? pendingItems.length+' pedidos por confirmar' : 'Sem pedidos pendentes');
  const pendingKey=JSON.stringify(pendingItems);
@@ -130,6 +133,7 @@ async function load() {
 }
 $('agendaDate').onchange=()=>{$('calendarMonth').value=$('agendaDate').value.slice(0,7);load()};
 $('calendarMonth').onchange=load;
+ $('messageFilter').onchange=load;
 $('refresh').onclick=load;
 $('contactSearch').oninput=loadContacts;
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
