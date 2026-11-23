@@ -2,7 +2,7 @@ import {initAppUpdates} from './admin-update.js?v=20261123';
 import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261122-improvements';
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice,devicePushState} from './backend.js?v=20261122-recovery';
 import {appInvitationControls} from './app-invitation.js?v=20261122-invite';
-import {followUpControls,followUpBookings,bookingStage} from './follow-up.js?v=20261123-history';
+import {followUpControls,followUpBookings,bookingStage} from './follow-up.js?v=20261123-emoji';
 import {initManualBookings} from './admin-create.js?v=20261123-stages';
 import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings} from './agenda.js';
 let authorized = false;

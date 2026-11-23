@@ -1,9 +1,9 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {followUpMessage,followUpLink,followUpBookings,bookingStage} from '../follow-up.js';
+import {serviceEmoji,followUpMessage,followUpLink,followUpBookings,bookingStage} from '../follow-up.js';
 test('manual reminder uses Lisbon time, service, date and normalized recipient',()=>{
  const booking={customer_name:'Maria & Inês',phone:'912 345 678',starts_at:'2026-07-10T08:30:00Z',services:{name:'Mãos & pés'}};
  const text=followUpMessage(booking),url=new URL(followUpLink(booking));
- assert.match(text,/Por favor, confirme a sua marcação/);assert.match(text,/09:30/);assert.match(text,/10 de julho/);assert.match(text,/Mãos & pés/);
+ assert.match(text,/responda a esta mensagem para confirmar a sua presença/);assert.match(text,/09:30/);assert.match(text,/10 de julho/);assert.match(text,/Mãos & pés/);
  assert.equal(url.pathname,'/351912345678');assert.equal(url.searchParams.get('text'),text);
  assert.equal(followUpLink({...booking,phone:'abc'}),null);
 });
@@ -44,4 +44,12 @@ test('sent and confirmed are exclusive and move to history automatically at appo
  assert.deepEqual(followUpBookings(rows,'sent',now).map(b=>b.id),[]);
  assert.deepEqual(followUpBookings(rows,'confirmed',now).map(b=>b.id),['sent','confirmed']);
  assert.deepEqual(followUpBookings(rows,'unsent','2030-05-02T09:00:00Z').map(b=>b.id),[]);
+});
+
+test('approved message applies the service emoji, flower, clock and affectionate closing',()=>{
+ for(const [service,emoji] of [[{name:'Axilas',category:'Cera'},'🍯'],[{name:'Axilas',category:'Laser'},'✨'],[{name:'Verniz de gel',category:'Mãos'},'💅'],[{name:'Pedicure',category:'Pés'},'🦶'],[{name:'Limpeza de pele',category:'Rosto'},'🧖‍♀️']]){
+  const text=followUpMessage({customer_name:'Maria',starts_at:'2030-07-01T08:30:00Z',services:service});
+  assert.equal(serviceEmoji(service),emoji);assert.ok(text.includes(service.name+' '+emoji));
+  assert.match(text,/Ana Esteticista 🌸/);assert.match(text,/09:30 🕒/);assert.match(text,/Obrigada, beijinhos e até breve! 🌸$/);
+ }
 });
