@@ -7,8 +7,11 @@ class Element {
  replaceChildren(...nodes){this.children=nodes;this.value=nodes[0]?.value||''}
  append(node){this.children.push(node)}
  reportValidity(){return true}
+ setAttribute(name,value){this[name]=value}
+ focus(){this.focused=true}
+ scrollIntoView(){}
 }
-const ids=['manualForm','manualFields','manualService','manualDay','manualTime','manualSubmit','manualStatus','manualName','manualPhone'];
+const ids=['manualForm','manualFields','manualService','manualDay','manualTime','manualSubmit','manualStatus','manualName','manualPhone','manualContact','manualContactSearch','manualContactHint','manualExistingFields','manualNewClient','manualExistingClient','manualInvite','manualBooking'];
 const elements=Object.fromEntries(ids.map(id=>[id,new Element()]));
 const context=vm.createContext({Intl,Date,document:{getElementById:id=>elements[id],createElement:()=>new Element()}});
 vm.runInContext(source.replace('export async function','async function'),context);
@@ -20,7 +23,7 @@ const db={from(){return {select(){return {order(){return {order:async()=>({data:
  creates.push({name,args});return creation.promise;
 }};
 let savedDay=null,savedContact=null,savedCalls=0,knownContact=false;
-await context.initManualBookings({db,isKnownContact:()=>knownContact,onSaved:async(day,contact)=>{savedDay=day;savedContact=contact;savedCalls++}});
+const controller=await context.initManualBookings({db,isKnownContact:()=>knownContact,onSaved:async(day,contact)=>{savedDay=day;savedContact=contact;savedCalls++}});
 assert.equal(elements.manualFields.disabled,false);
 assert.equal(elements.manualSubmit.disabled,true);
 elements.manualService.value='gel';elements.manualDay.value='2026-11-02';
@@ -60,3 +63,28 @@ assert.equal(elements.manualName.value,'Cliente de teste','a failure must preser
 assert.equal(savedCalls,1,'failed bookings must not generate an invitation');
 console.log('PASS: catalogue, stale availability, duplicate submit, confirmed booking, missing migration and preserved inputs');
 
+
+controller.setContacts([{name:'Maria Silva',phone:'912345678'},{name:'Maria Costa',phone:'913456789'}]);
+elements.manualExistingClient.onclick();
+assert.equal(elements.manualExistingFields.hidden,false);
+assert.equal(elements.manualName.value,'','switching clients clears previous customer data');
+assert.equal(elements.manualName.readOnly,true);
+elements.manualContactSearch.value='912 345';elements.manualContactSearch.oninput();
+assert.equal(elements.manualContact.children.length,2,'phone search ignores spaces');
+elements.manualContact.value='351912345678';elements.manualContact.onchange();
+assert.equal(elements.manualName.value,'Maria Silva');
+assert.equal(elements.manualPhone.value,'912345678');
+controller.setContacts([{name:'Maria Silva',phone:'912345678'},{name:'Maria Costa',phone:'913456789'}]);
+assert.equal(elements.manualContact.value,'351912345678','agenda refresh preserves the selected contact');
+elements.manualTime.value='09:00';elements.manualTime.onchange();
+elements.manualName.value='Unwanted edit';creation=deferred();
+const existingSave=elements.manualForm.onsubmit(event);
+assert.equal(creates.at(-1).args.p_name,'Maria Silva','saved booking uses selected contact, not stale text');
+creation.resolve({data:'existing-contact-booking',error:null});
+while(waiting.length<6)await Promise.resolve();waiting[5].resolve({data:[],error:null});await existingSave;
+assert.equal(savedContact.isNew,false);
+assert.equal(controller.startForContact({name:'Maria Costa',phone:'913456789'}),true);
+assert.equal(elements.manualName.value,'Maria Costa');assert.equal(elements.manualPhone.value,'913456789');
+assert.equal(elements.manualBooking.open,true);assert.equal(elements.manualService.focused,true);
+elements.manualNewClient.onclick();assert.equal(elements.manualName.value,'');assert.equal(elements.manualPhone.readOnly,false);assert.equal(elements.manualExistingFields.hidden,true);
+console.log('PASS: existing contact selection, phone search, refresh preservation, booking payload and contact shortcut');

@@ -2,10 +2,10 @@ import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './ag
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice,devicePushState} from './backend.js?v=20261122-recovery';
 import {appInvitationControls} from './app-invitation.js?v=20261122-invite';
 import {followUpControls} from './follow-up.js?v=20261122-improvements';
-import {initManualBookings} from './admin-create.js?v=20261122-invite';
+import {initManualBookings} from './admin-create.js?v=20261123-contacts';
 import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings} from './agenda.js';
 let authorized = false;
-let agendaTools;
+let agendaTools,manualBookings;
 let request = 0;
 let knownContactPhones=new Set();
 let contactsLoaded=false;
@@ -76,6 +76,7 @@ function renderMonth(bookings) {
 async function loadContacts() {
  const {data,error}=await db.from('customer_contacts').select('name,phone,updated_at').order('name').limit(1000);
  if(error){message('contactStatus','Não foi possível carregar os contactos.');return}
+ manualBookings?.setContacts(data);
  knownContactPhones=new Set(data.map(item=>internationalPhone(item.phone)));contactsLoaded=true;
  const query=$('contactSearch').value.toLocaleLowerCase('pt-PT');
  const renderKey=JSON.stringify([query,data]);
@@ -85,7 +86,7 @@ async function loadContacts() {
  for(const contact of data.filter(item=>(item.name+' '+item.phone).toLocaleLowerCase('pt-PT').includes(query))) {
   const row=document.createElement('p');const name=document.createElement('strong');name.textContent=contact.name+' · ';
   const phone=document.createElement('a');phone.textContent=contact.phone;phone.href='tel:+'+internationalPhone(contact.phone);
-  row.append(name,phone);const entry=document.createElement('div');entry.className='contact-entry';entry.append(row,appInvitationControls(contact));$('contacts').append(entry);
+  row.append(name,phone);const entry=document.createElement('div');entry.className='contact-entry';const book=document.createElement('button');book.type='button';book.className='primary contact-booking';book.textContent='Fazer marcação';book.setAttribute('aria-label','Fazer marcação para '+contact.name);book.onclick=()=>{if(!manualBookings?.startForContact(contact))message('contactStatus','Aguarde que a marcação atual termine de guardar.')};entry.append(row,book,appInvitationControls(contact));$('contacts').append(entry);
  }
  message('contactStatus',data.length+' contactos guardados. Números nacionais de 9 dígitos usam +351.');
 }
@@ -147,5 +148,5 @@ else{
  bindLogin('email','status',()=>location.reload());
  const user=await currentUser();
  if(user&&!recoveryLink){const {data,error}=await db.from('staff').select('user_id').eq('user_id',user.id).maybeSingle();authorized=!!data&&!error;
- if(authorized){message('devicePushState',await devicePushState());$('login').hidden=true;$('agenda').hidden=false;registerWorker().catch(()=>{});await initManualBookings({db,isKnownContact:phone=>contactsLoaded&&knownContactPhones.has(internationalPhone(phone)),onSaved:async(day,contact)=>{const isNew=contact.isNew;$('manualInvite').replaceChildren();if(isNew){$('manualInvite').append(appInvitationControls(contact,{open:true}));$('manualInvite').hidden=false}else $('manualInvite').hidden=true;$('agendaDate').value=day;await load()}});agendaTools=await initAgendaTools({db,onChanged:load,selectDay});await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
+ if(authorized){message('devicePushState',await devicePushState());$('login').hidden=true;$('agenda').hidden=false;registerWorker().catch(()=>{});manualBookings=await initManualBookings({db,isKnownContact:phone=>contactsLoaded&&knownContactPhones.has(internationalPhone(phone)),onSaved:async(day,contact)=>{const isNew=contact.isNew;$('manualInvite').replaceChildren();if(isNew){$('manualInvite').append(appInvitationControls(contact,{open:true}));$('manualInvite').hidden=false}else $('manualInvite').hidden=true;$('agendaDate').value=day;await load()}});agendaTools=await initAgendaTools({db,onChanged:load,selectDay});await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
 }
