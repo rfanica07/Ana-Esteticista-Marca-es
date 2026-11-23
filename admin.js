@@ -1,7 +1,7 @@
 import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261122-improvements';
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice,devicePushState} from './backend.js?v=20261122-recovery';
 import {appInvitationControls} from './app-invitation.js?v=20261122-invite';
-import {followUpControls,followUpBookings,bookingStage} from './follow-up.js?v=20261123-all-dates';
+import {followUpControls,followUpBookings,bookingStage} from './follow-up.js?v=20261123-history';
 import {initManualBookings} from './admin-create.js?v=20261123-stages';
 import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings} from './agenda.js';
 let authorized = false;
@@ -47,8 +47,8 @@ function card(booking, showDay = false) {
  if(booking.status==='pending'&&booking.pending_expires_at){const deadline=document.createElement('p');deadline.className='muted';deadline.textContent='Confirmar até '+fullDate(booking.pending_expires_at)+' às '+hour(booking.pending_expires_at);article.append(deadline)}
  if(booking.rescheduled_at){const changed=document.createElement('p');changed.className='muted';changed.textContent='Horário alterado em '+fullDate(booking.rescheduled_at);article.append(changed)}
  if(['pending','confirmed'].includes(booking.status)&&new Date(booking.starts_at)>new Date())article.append(rescheduleControls({db,booking,onSaved:async day=>{selectDay(day)}}));
- if(booking.status==='confirmed')article.append(followUpControls(booking,{db,onSaved:load}));
- if(['pending','confirmed'].includes(booking.status))article.append(appInvitationControls({name:booking.customer_name,phone:booking.phone}));
+ if(booking.status==='confirmed'&&new Date(booking.starts_at)>new Date())article.append(followUpControls(booking,{db,onSaved:load}));
+ if(['pending','confirmed'].includes(booking.status)&&new Date(booking.starts_at)>new Date())article.append(appInvitationControls({name:booking.customer_name,phone:booking.phone}));
  return article;
 }
 async function selectDay(day) {
@@ -93,7 +93,7 @@ async function loadContacts() {
 async function loadMessageBookings(fields){
  const items=[];
  for(let offset=0;;offset+=1000){
-  const {data,error}=await db.from('bookings').select(fields).eq('status','confirmed').order('starts_at').order('id').range(offset,offset+999);
+  const {data,error}=await db.from('bookings').select(fields).order('starts_at').order('id').range(offset,offset+999);
   if(error)return {error};items.push(...data);if(data.length<1000)return {data:items,error:null};
  }
 }
@@ -118,9 +118,9 @@ async function load() {
  const visible=followUpBookings(selected,$('messageFilter').value);
  const dailyKey=JSON.stringify([day,visible,$('messageFilter').value]);
  if(dailyKey!==dailyRenderKey){$('bookings').replaceChildren(...visible.map(booking=>card(booking,true)));dailyRenderKey=dailyKey}
- message('count',visible.length+' '+({unsent:'mensagens por enviar',sent:'mensagens enviadas',all:'marcações'})[$('messageFilter').value]);
+ message('count',visible.length+' '+({unsent:'mensagens por enviar',sent:'lembretes enviados · aguardam confirmação',confirmed:'presenças confirmadas',history:'marcações no histórico'})[$('messageFilter').value]);
  $('messageEmpty').hidden=visible.length>0;
- $('messageEmpty').textContent=({unsent:'Tudo em dia! Não há mensagens por enviar.',sent:'Ainda não há mensagens marcadas como enviadas.',all:'Não há marcações.'})[$('messageFilter').value];
+ $('messageEmpty').textContent=({unsent:'Tudo em dia! Não há mensagens por enviar.',sent:'Não há lembretes a aguardar a confirmação da cliente.',confirmed:'Ainda não há presenças confirmadas para as próximas marcações.',history:'Ainda não há marcações no histórico.'})[$('messageFilter').value];
  const pendingItems=pendingBookings(pending.data);
  message('pendingCount',pendingItems.length ? pendingItems.length+' pedidos por confirmar' : 'Sem pedidos pendentes');
  const pendingKey=JSON.stringify(pendingItems);

@@ -10,8 +10,18 @@ export function bookingStage(booking){
  if(booking.status!=='confirmed')return ({pending:'Pedido pendente',cancelled:'Cancelada',declined:'Recusada'})[booking.status]||booking.status;
  return booking.customer_confirmed_at?'Confirmado':booking.follow_up_sent_at?'Lembrete enviado':'Marcado';
 }
-export function followUpBookings(bookings,filter='unsent'){
- return bookings.filter(booking=>filter==='all'||(booking.status==='confirmed'&&(filter==='sent'?!!booking.follow_up_sent_at:(!booking.follow_up_sent_at&&new Date(booking.starts_at)>new Date()))));
+export function followUpBookings(bookings,filter='unsent',now=new Date()){
+ const time=new Date(now).getTime();
+ const items=bookings.filter(booking=>{
+  const past=new Date(booking.starts_at).getTime()<=time;
+  if(filter==='history')return past;
+  if(booking.status!=='confirmed'||past)return false;
+  if(filter==='confirmed')return !!booking.customer_confirmed_at;
+  if(booking.customer_confirmed_at)return false;
+  if(filter==='sent')return !!booking.follow_up_sent_at;
+  return !booking.follow_up_sent_at;
+ });
+ return items.sort((a,b)=>filter==='history'?new Date(b.starts_at)-new Date(a.starts_at):new Date(a.starts_at)-new Date(b.starts_at));
 }
 export function followUpControls(booking,{db,onSaved=()=>{}}={}){
  const panel=document.createElement('details');panel.className='follow-up';
