@@ -1,3 +1,4 @@
+import {initRevenue} from './revenue.js?v=20261124-gains';
 import {financialControls} from './booking-financials.js?v=20261124-attended';
 import {initAppUpdates} from './admin-update.js?v=20261123';
 import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261124-day';
@@ -7,7 +8,7 @@ import {followUpControls,followUpBookings,bookingStage} from './follow-up.js?v=2
 import {initManualBookings} from './admin-create.js?v=20261123-client-notices';
 import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings,dayBookings} from './agenda.js?v=20261124-day';
 let authorized = false;
-let agendaTools,manualBookings;
+let agendaTools,manualBookings,revenue;
 let request = 0;
 let knownContactPhones=new Set();
 let contactsLoaded=false;
@@ -151,6 +152,7 @@ async function load() {
  if(pendingKey!==pendingRenderKey&&!document.querySelector('[data-finance-dirty="true"]')){$('pendingBookings').replaceChildren(...pendingItems.map(booking=>card(booking,true)));pendingRenderKey=pendingKey}
  renderMonth(monthly.data);
  message('status','Agenda atualizada. Consulte o dia no topo; as mensagens por enviar incluem todos os dias.');
+ revenue?.invalidate();
  await Promise.all([loadContacts(),refreshNotificationHealth(db)]);
  const {data:requests,error:requestError}=await db.from('data_requests').select('id,request_type,details,created_at,status,user_id,requester_email').eq('status','pending').order('created_at');
  $('dataRequests').replaceChildren();
@@ -164,6 +166,7 @@ $('calendarMonth').onchange=load;
  $('messageFilter').onchange=()=>{for(const button of document.querySelectorAll('[data-message-filter]'))button.setAttribute('aria-pressed',String(button.dataset.messageFilter===$('messageFilter').value));load()};
  for(const button of document.querySelectorAll('[data-message-filter]'))button.onclick=()=>{if(document.querySelector('[data-finance-dirty="true"]')&&!confirm('Há um registo por guardar. Mudar de lista e descartar essas alterações?'))return;for(const form of document.querySelectorAll('[data-finance-dirty]'))form.dataset.financeDirty='false';$('messageFilter').value=button.dataset.messageFilter;$('messageFilter').onchange()};
 $('refresh').onclick=()=>{if(document.querySelector('[data-finance-dirty="true"]')&&!confirm('Há um registo por guardar. Atualizar a agenda e descartar essas alterações?'))return;for(const form of document.querySelectorAll('[data-finance-dirty]'))form.dataset.financeDirty='false';load()};
+$('goRevenue').onclick=()=>{$('revenuePanel').open=true;$('revenuePanel').scrollIntoView({behavior:'smooth',block:'start'})};
 $('contactSearch').oninput=loadContacts;
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
 window.addEventListener('focus',()=>load());
@@ -181,5 +184,5 @@ else{
  bindLogin('email','status',()=>location.reload());
  const user=await currentUser();
  if(user&&!recoveryLink){const {data,error}=await db.from('staff').select('user_id').eq('user_id',user.id).maybeSingle();authorized=!!data&&!error;
- if(authorized){message('devicePushState',await devicePushState());$('login').hidden=true;$('agenda').hidden=false;registerWorker().catch(()=>{});manualBookings=await initManualBookings({db,isKnownContact:phone=>contactsLoaded&&knownContactPhones.has(internationalPhone(phone)),onSaved:async(day,contact)=>{const isNew=contact.isNew;$('manualInvite').replaceChildren();if(isNew){$('manualInvite').append(appInvitationControls(contact,{open:true}));$('manualInvite').hidden=false}else $('manualInvite').hidden=true;selectedDay=day;$('calendarMonth').value=day.slice(0,7);await load()}});agendaTools=await initAgendaTools({db,onChanged:load,selectDay});await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
+ if(authorized){revenue=initRevenue({db});message('devicePushState',await devicePushState());$('login').hidden=true;$('agenda').hidden=false;registerWorker().catch(()=>{});manualBookings=await initManualBookings({db,isKnownContact:phone=>contactsLoaded&&knownContactPhones.has(internationalPhone(phone)),onSaved:async(day,contact)=>{const isNew=contact.isNew;$('manualInvite').replaceChildren();if(isNew){$('manualInvite').append(appInvitationControls(contact,{open:true}));$('manualInvite').hidden=false}else $('manualInvite').hidden=true;selectedDay=day;$('calendarMonth').value=day.slice(0,7);await load()}});agendaTools=await initAgendaTools({db,onChanged:load,selectDay});await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
 }
