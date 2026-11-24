@@ -1,6 +1,6 @@
 // Check the published page without interrupting a booking being entered.
 export function hasUnsavedBooking(doc=document){
- return !!doc.querySelector('[data-finance-dirty="true"]')||['email','password','manualName','manualPhone','manualAccountEmail','manualService','manualTime','blockReason'].some(id=>!!doc.getElementById(id)?.value?.trim());
+ return !!doc.querySelector('[data-finance-dirty="true"],[data-history-dirty="true"]')||['email','password','manualName','manualPhone','manualAccountEmail','manualService','manualTime','blockReason'].some(id=>!!doc.getElementById(id)?.value?.trim());
 }
 export function initAppUpdates({doc=document,win=window,fetchPage=fetch}={}){
  const version=doc.querySelector('script[type="module"][src^="admin.js"]')?.getAttribute('src');

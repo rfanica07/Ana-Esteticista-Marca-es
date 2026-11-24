@@ -1,10 +1,12 @@
-export async function initManualBookings({db,onSaved,isKnownContact=()=>false}) {
+export async function initManualBookings({db,onSaved,isKnownContact=()=>false,getClientHistory=()=>''}) {
  const el=id=>document.getElementById(id);
  const form=el('manualForm'),fields=el('manualFields'),service=el('manualService'),day=el('manualDay'),time=el('manualTime'),submit=el('manualSubmit');
  const status=text=>{el('manualStatus').textContent=text};
  let request=0,verifiedKey=null,busy=false,contacts=[],contactsReady=false,mode='new',selectedPhone='';
  const name=el('manualName'),phone=el('manualPhone'),picker=el('manualContact'),search=el('manualContactSearch');
  const key=value=>String(value||'').replace(/\D/g,'').replace(/^00/,'').replace(/^(\d{9})$/,'351$1');
+ const historyHint=()=>{const hint=el('manualHistoryHint');if(hint){hint.textContent=getClientHistory(phone.value);hint.hidden=!hint.textContent}};
+ phone.oninput=historyHint;
  const selected=()=>contacts.find(contact=>key(contact.phone)===selectedPhone);
  function renderContacts(){
   const query=search.value.trim().toLocaleLowerCase('pt-PT');
@@ -23,18 +25,18 @@ export async function initManualBookings({db,onSaved,isKnownContact=()=>false}) 
   el('manualExistingFields').hidden=mode!=='existing';picker.required=mode==='existing';
   name.readOnly=phone.readOnly=mode==='existing';
   el('manualNewClient').setAttribute('aria-pressed',String(mode==='new'));el('manualExistingClient').setAttribute('aria-pressed',String(mode==='existing'));
-  renderContacts();el('manualInvite').hidden=true;
+  renderContacts();historyHint();el('manualInvite').hidden=true;
  }
  el('manualNewClient').onclick=()=>setMode('new');el('manualExistingClient').onclick=()=>setMode('existing');
  search.oninput=renderContacts;
- picker.onchange=()=>{if(el('manualAccountEmail'))el('manualAccountEmail').value='';selectedPhone=picker.value;const contact=selected();name.value=contact?.name||'';phone.value=contact?.phone||'';el('manualInvite').hidden=true};
+ picker.onchange=()=>{if(el('manualAccountEmail'))el('manualAccountEmail').value='';selectedPhone=picker.value;const contact=selected();name.value=contact?.name||'';phone.value=contact?.phone||'';historyHint();el('manualInvite').hidden=true};
  const controller={
-  setContacts(items){contacts=items;contactsReady=true;if(selectedPhone&&!selected()){selectedPhone='';name.value='';phone.value=''}renderContacts()},
+  setContacts(items){contacts=items;contactsReady=true;if(selectedPhone&&!selected()){selectedPhone='';name.value='';phone.value=''}renderContacts();historyHint()},
   startForContact(contact){
    if(busy)return false;
    if(el('manualAccountEmail'))el('manualAccountEmail').value='';
    if(!contacts.some(item=>key(item.phone)===key(contact.phone)))contacts.push(contact);
-   setMode('existing');selectedPhone=key(contact.phone);search.value='';renderContacts();name.value=contact.name;phone.value=contact.phone;
+   setMode('existing');selectedPhone=key(contact.phone);search.value='';renderContacts();name.value=contact.name;phone.value=contact.phone;historyHint();
    el('manualBooking').open=true;el('manualBooking').scrollIntoView({behavior:'smooth',block:'start'});service.focus();
    return true;
   }
@@ -76,7 +78,7 @@ export async function initManualBookings({db,onSaved,isKnownContact=()=>false}) 
    const args={p_service:service.value,p_day:chosenDay,p_time:time.value,p_name:contact.name,p_phone:contact.phone};
    const {error}=await db.rpc(email?'create_staff_booking_for_account':'create_staff_booking',email?{...args,p_email:email}:args);
    if(error)throw error;
-   name.value='';phone.value='';if(el('manualAccountEmail'))el('manualAccountEmail').value='';selectedPhone='';search.value='';renderContacts();
+   name.value='';phone.value='';if(el('manualAccountEmail'))el('manualAccountEmail').value='';selectedPhone='';search.value='';renderContacts();historyHint();
   }catch(error){
    busy=false;fields.disabled=false;await loadSlots();
    status(['PGRST202','42883'].includes(error.code)?'A criação de marcações ainda aguarda ativação na base de dados.':'Não foi possível guardar: '+error.message);
