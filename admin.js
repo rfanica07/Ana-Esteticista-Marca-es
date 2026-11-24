@@ -1,3 +1,4 @@
+import {financialControls} from './booking-financials.js?v=20261124';
 import {initAppUpdates} from './admin-update.js?v=20261123';
 import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261122-improvements';
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice,devicePushState} from './backend.js?v=20261122-recovery';
@@ -46,6 +47,7 @@ function card(booking, showDay = false) {
 
  const phone=document.createElement('a');phone.href='tel:+'+internationalPhone(booking.phone);phone.textContent='Ligar';actions.append(phone);
  article.append(title,details,state,actions);
+ article.append(financialControls(booking,{db,onSaved:load}));
  if(booking.status==='pending'&&booking.pending_expires_at){const deadline=document.createElement('p');deadline.className='muted';deadline.textContent='Confirmar até '+fullDate(booking.pending_expires_at)+' às '+hour(booking.pending_expires_at);article.append(deadline)}
  if(booking.rescheduled_at){const changed=document.createElement('p');changed.className='muted';changed.textContent='Horário alterado em '+fullDate(booking.rescheduled_at);article.append(changed)}
  if(['pending','confirmed'].includes(booking.status)&&new Date(booking.starts_at)>new Date())article.append(rescheduleControls({db,booking,onSaved:async day=>{selectDay(day)}}));
@@ -113,7 +115,7 @@ async function load() {
  if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!/^\d{4}-\d{2}$/.test(month)){message('status','Escolha um dia e um mês válidos.');return}
  const monthStart=new Date(month+'-01T00:00:00Z');monthStart.setUTCDate(monthStart.getUTCDate()-1);
  const monthEnd=new Date(month+'-01T00:00:00Z');monthEnd.setUTCMonth(monthEnd.getUTCMonth()+1);monthEnd.setUTCDate(2);
- const fields='*,services(name,category)';
+ const fields='*,services(name,category),booking_financials(*)';
  const [daily,pending,monthly]=await Promise.all([
   loadMessageBookings(fields),
   db.from('bookings').select(fields).eq('status','pending').gte('starts_at',new Date().toISOString()).order('starts_at').limit(200),
@@ -124,14 +126,14 @@ async function load() {
  const selected=daily.data;
  const visible=followUpBookings(selected,$('messageFilter').value);
  const dailyKey=JSON.stringify([day,visible,$('messageFilter').value]);
- if(dailyKey!==dailyRenderKey){$('bookings').replaceChildren(...visible.map(booking=>card(booking,true)));dailyRenderKey=dailyKey}
+ if(dailyKey!==dailyRenderKey&&!document.querySelector('[data-finance-dirty="true"]')){$('bookings').replaceChildren(...visible.map(booking=>card(booking,true)));dailyRenderKey=dailyKey}
  message('count',visible.length+' '+({unsent:'mensagens por enviar',sent:'lembretes enviados · aguardam confirmação',confirmed:'presenças confirmadas',history:'marcações no histórico'})[$('messageFilter').value]);
  $('messageEmpty').hidden=visible.length>0;
  $('messageEmpty').textContent=({unsent:'Tudo em dia! Não há mensagens por enviar.',sent:'Não há lembretes a aguardar a confirmação da cliente.',confirmed:'Ainda não há presenças confirmadas para as próximas marcações.',history:'Ainda não há marcações no histórico.'})[$('messageFilter').value];
  const pendingItems=pendingBookings(pending.data);
  message('pendingCount',pendingItems.length ? pendingItems.length+' pedidos por confirmar' : 'Sem pedidos pendentes');
  const pendingKey=JSON.stringify(pendingItems);
- if(pendingKey!==pendingRenderKey){$('pendingBookings').replaceChildren(...pendingItems.map(booking=>card(booking,true)));pendingRenderKey=pendingKey}
+ if(pendingKey!==pendingRenderKey&&!document.querySelector('[data-finance-dirty="true"]')){$('pendingBookings').replaceChildren(...pendingItems.map(booking=>card(booking,true)));pendingRenderKey=pendingKey}
  renderMonth(monthly.data);
  message('status','Agenda atualizada. A lista de mensagens inclui marcações de todos os dias.');
  await Promise.all([loadContacts(),refreshNotificationHealth(db)]);
@@ -145,8 +147,8 @@ async function load() {
 }
 $('calendarMonth').onchange=load;
  $('messageFilter').onchange=()=>{for(const button of document.querySelectorAll('[data-message-filter]'))button.setAttribute('aria-pressed',String(button.dataset.messageFilter===$('messageFilter').value));load()};
- for(const button of document.querySelectorAll('[data-message-filter]'))button.onclick=()=>{$('messageFilter').value=button.dataset.messageFilter;$('messageFilter').onchange()};
-$('refresh').onclick=load;
+ for(const button of document.querySelectorAll('[data-message-filter]'))button.onclick=()=>{if(document.querySelector('[data-finance-dirty="true"]')&&!confirm('Há um registo por guardar. Mudar de lista e descartar essas alterações?'))return;for(const form of document.querySelectorAll('[data-finance-dirty]'))form.dataset.financeDirty='false';$('messageFilter').value=button.dataset.messageFilter;$('messageFilter').onchange()};
+$('refresh').onclick=()=>{if(document.querySelector('[data-finance-dirty="true"]')&&!confirm('Há um registo por guardar. Atualizar a agenda e descartar essas alterações?'))return;for(const form of document.querySelectorAll('[data-finance-dirty]'))form.dataset.financeDirty='false';load()};
 $('contactSearch').oninput=loadContacts;
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
 window.addEventListener('focus',()=>load());
