@@ -6,7 +6,7 @@ export function paymentAmounts(total,depositReceived,paidInFull){
  const balance=paidInFull?cents-deposit:0;
  return {deposit:deposit/100,balance:balance/100,received:(deposit+balance)/100,outstanding:(cents-deposit-balance)/100};
 }
-export const attendanceLabel=value=>({unrecorded:'Presença por registar',attended:'✓ Compareceu',no_show:'✕ Faltou'})[value]||'Presença por registar';
+export const attendanceLabel=value=>({unrecorded:'Presença por registar',attended:'✓ Compareceu / Serviço realizado',no_show:'✕ Faltou'})[value]||'Presença por registar';
 export function financialControls(booking,{db,onSaved}){
  const record=Array.isArray(booking.booking_financials)?booking.booking_financials[0]:booking.booking_financials;
  const root=document.createElement('details');root.className='booking-financials';
@@ -21,7 +21,7 @@ export function financialControls(booking,{db,onSaved}){
  const status=document.createElement('p');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
  if(!record){status.textContent='Não foi possível carregar este registo. Atualize a agenda.';root.append(status);return root}
  const attendance=document.createElement('select');attendance.setAttribute('aria-label','Presença de '+booking.customer_name);
- for(const [value,text] of [['unrecorded','Por registar'],['attended','✓ Compareceu'],['no_show','✕ Faltou']]){const option=document.createElement('option');option.value=value;option.textContent=text;option.disabled=value!=='unrecorded'&&new Date(booking.starts_at)>new Date();attendance.append(option)}
+ for(const [value,text] of [['unrecorded','Por registar'],['attended','✓ Compareceu / Serviço realizado'],['no_show','✕ Faltou']]){const option=document.createElement('option');option.value=value;option.textContent=text;option.disabled=value!=='unrecorded'&&new Date(booking.starts_at)>new Date();attendance.append(option)}
  attendance.value=record.attendance;
  const total=input('number',record.service_total);total.min='0';total.step='0.01';total.required=true;
  const required=input('checkbox');required.checked=record.deposit_required;
@@ -33,10 +33,11 @@ export function financialControls(booking,{db,onSaved}){
  const depositRow=label('Data em que recebeu o sinal',depositDate),balanceRow=label('Data em que recebeu o restante pagamento',balanceDate);
  const preview=document.createElement('p');preview.className='payment-preview';preview.setAttribute('aria-live','polite');
  const hint=document.createElement('p');hint.className='muted';hint.textContent=record.price_source==='catalog_reference'?'Preço de referência do catálogo atual. Confirme o preço acordado nesta marcação antes de guardar.':'O preço desta marcação fica guardado, mesmo que o catálogo mude.';
- const notice=document.createElement('p');notice.className='muted';notice.textContent='Registe apenas pagamentos realmente recebidos. Uma falta não apaga automaticamente um sinal recebido.';
+ const notice=document.createElement('p');notice.className='muted';notice.textContent='Ao marcar Compareceu / Serviço realizado, o pagamento fica concluído automaticamente: apenas o restante se já recebeu sinal, ou o total se não recebeu. Uma falta mantém o sinal já recebido e não acrescenta pagamentos.';
  const refresh=()=>{if(deposit.checked)required.checked=true;depositRow.hidden=!deposit.checked;depositDate.required=deposit.checked;balanceRow.hidden=!full.checked;balanceDate.required=full.checked;const values=paymentAmounts(total.value,deposit.checked,full.checked);preview.textContent='Sinal de 50%: '+money(paymentAmounts(total.value,true,false).deposit)+' · Recebido: '+money(values.received)+' · Por receber: '+money(values.outstanding)};
  fields.append(label('Presença da cliente',attendance),label('Preço acordado (€)',total),hint,label('Exigir sinal de 50% nesta marcação',required),label('💶 Sinal de 50% recebido',deposit),depositRow,label('✓ Pagamento total concluído',full),balanceRow,preview,notice);
  const save=document.createElement('button');save.type='submit';save.className='primary';save.textContent='Guardar presença e pagamento';fields.append(save);form.append(fields,status);root.append(form);
+ attendance.onchange=()=>{if(attendance.value==='attended'){full.checked=true;balanceDate.value=record.balance_received_on||lisbonDay(new Date(booking.starts_at))}else if(record.attendance!=='attended'){full.checked=paid}refresh()};
  form.oninput=()=>{form.dataset.financeDirty='true';refresh()};form.onchange=()=>{form.dataset.financeDirty='true';refresh()};
  let busy=false;
  form.onsubmit=async event=>{
