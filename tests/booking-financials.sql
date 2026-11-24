@@ -1,0 +1,46 @@
+begin;
+do $$
+declare staff_id uuid; client_id uuid; past_id uuid; future_id uuid; v timestamptz; initial_version timestamptz; n integer; blocked boolean; day date:=(now() at time zone 'Europe/Lisbon')::date;
+begin
+ select user_id into staff_id from public.staff limit 1;
+ select u.id into client_id from auth.users u where not exists(select 1 from public.staff s where s.user_id=u.id) limit 1;
+ select id into past_id from public.bookings where status='confirmed' and starts_at<now() limit 1;
+ select id into future_id from public.bookings where status='confirmed' and starts_at>now() limit 1;
+ if past_id is null or future_id is null then raise exception 'Need past/future bookings for transactional test';end if;
+ perform set_config('request.jwt.claim.sub',staff_id::text,true);
+ select updated_at into v from public.booking_financials where booking_id=future_id;
+ blocked:=false;
+ begin perform public.save_booking_financials(future_id,'attended',22,false,false,null,false,null,v);exception when others then blocked:=true;end;
+ if not blocked then raise exception 'Future attendance was accepted';end if;
+ select updated_at into v from public.booking_financials where booking_id=past_id;initial_version:=v;
+ perform public.save_booking_financials(past_id,'no_show',7.50,true,true,day-1,false,null,v);
+ if not exists(select 1 from public.booking_financials where booking_id=past_id and attendance='no_show' and deposit_amount=3.75 and balance_amount=0) then raise exception 'No-show deposit lost or wrong half';end if;
+ if (select sum(amount) from public.booking_payment_entries where booking_id=past_id)<>3.75 then raise exception 'Deposit ledger incorrect';end if;
+ select updated_at into v from public.booking_financials where booking_id=past_id;
+ select count(*) into n from public.booking_payment_entries where booking_id=past_id;
+ perform public.save_booking_financials(past_id,'no_show',7.50,true,true,day-1,false,null,v);
+ if (select count(*) from public.booking_payment_entries where booking_id=past_id)<>n then raise exception 'Repeated save counted deposit twice';end if;
+ select updated_at into v from public.booking_financials where booking_id=past_id;
+ perform public.save_booking_financials(past_id,'attended',7.50,true,true,day-1,true,day,v);
+ if not exists(select 1 from public.booking_financials where booking_id=past_id and deposit_amount=3.75 and balance_amount=3.75) then raise exception 'Balance double-counted';end if;
+ if (select sum(amount) from public.booking_payment_entries where booking_id=past_id)<>7.50 then raise exception 'Total receipts incorrect';end if;
+ if (select sum(amount) from public.booking_payment_entries where booking_id=past_id and received_on=day-1)<>3.75 then raise exception 'Deposit date lost';end if;
+ blocked:=false;
+ begin perform public.save_booking_financials(past_id,'attended',7.50,true,true,day-1,true,day,initial_version);exception when others then blocked:=true;end;
+ if not blocked then raise exception 'Stale save accepted';end if;
+ select updated_at into v from public.booking_financials where booking_id=past_id;
+ perform public.save_booking_financials(past_id,'unrecorded',7.50,false,false,null,false,null,v);
+ if (select sum(amount) from public.booking_payment_entries where booking_id=past_id)<>0 then raise exception 'Correction ledger incorrect';end if;
+ perform set_config('request.jwt.claim.sub',client_id::text,true);blocked:=false;
+ begin perform public.save_booking_financials(past_id,'attended',7.50,false,false,null,false,null,v);exception when others then blocked:=true;end;
+ if not blocked then raise exception 'Client can change financial records';end if;
+ perform set_config('ana.test_client_id',client_id::text,true);
+end;$$;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',current_setting('ana.test_client_id'),true);
+do $$begin
+ if exists(select 1 from public.booking_financials) or exists(select 1 from public.booking_payment_entries) or exists(select 1 from public.booking_financial_revisions) then raise exception 'Financial data exposed to client';end if;
+end;$$;
+reset role;
+select 'PASS: future attendance blocked; no-show keeps deposit; receipts dates; no double count; corrections; stale save; private staff-only records. Rolled back.' as result;
+rollback;
