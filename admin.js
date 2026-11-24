@@ -1,18 +1,18 @@
 import {financialControls} from './booking-financials.js?v=20261124-attended';
 import {initAppUpdates} from './admin-update.js?v=20261123';
-import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261122-improvements';
+import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261124-day';
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice,devicePushState} from './backend.js?v=20261122-recovery';
 import {appInvitationControls} from './app-invitation.js?v=20261122-invite';
 import {followUpControls,followUpBookings,bookingStage} from './follow-up.js?v=20261123-service-names';
 import {initManualBookings} from './admin-create.js?v=20261123-client-notices';
-import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings} from './agenda.js';
+import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings,dayBookings} from './agenda.js?v=20261124-day';
 let authorized = false;
 let agendaTools,manualBookings;
 let request = 0;
 let knownContactPhones=new Set();
 let contactsLoaded=false;
 let contactRenderKey=null;
-let dailyRenderKey=null,pendingRenderKey=null;
+let dailyRenderKey=null,pendingRenderKey=null,agendaDayRenderKey=null;
 const $ = id => document.getElementById(id);
 initAppUpdates();
 const today = lisbonDay(new Date());
@@ -56,9 +56,11 @@ function card(booking, showDay = false) {
  return article;
 }
 async function selectDay(day) {
+ if(document.querySelector('[data-finance-dirty="true"]')&&!confirm('Há um registo por guardar. Mudar de dia e descartar essas alterações?'))return;
+ for(const form of document.querySelectorAll('[data-finance-dirty]'))form.dataset.financeDirty='false';
  selectedDay=day;
  $('calendarMonth').value=day.slice(0,7);
- await load();$('count').scrollIntoView({behavior:'smooth',block:'center'});
+ await load();$('dayAgenda').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function renderMonth(bookings) {
  const month=$('calendarMonth').value;
@@ -123,6 +125,19 @@ async function load() {
  ]);
  if(current!==request)return;
  if(daily.error||pending.error||monthly.error){message('status','Não foi possível atualizar a agenda. Toque em Atualizar agenda.');return}
+ const dayItems=dayBookings(daily.data,day);
+ const dayKey=JSON.stringify([day,dayItems]);
+ if(dayKey!==agendaDayRenderKey&&!document.querySelector('[data-finance-dirty="true"]')){
+  $('dayBookings').replaceChildren(...dayItems.map(booking=>card(booking)));
+  agendaDayRenderKey=dayKey;
+ }
+ $('dayAgendaTitle').textContent='📅 Agenda de '+fullDate(day+'T12:00:00Z');
+ message('dayCount',dayItems.length+' '+(dayItems.length===1?'marcação':'marcações')+' · dia completo, por horário');
+ $('dayEmpty').hidden=dayItems.length>0;
+ $('dayEmpty').textContent='Não há marcações para este dia.';
+ $('goToday').setAttribute('aria-pressed',String(day===lisbonDay(new Date())));
+ const tomorrow=new Date(lisbonDay(new Date())+'T12:00:00Z');tomorrow.setUTCDate(tomorrow.getUTCDate()+1);
+ $('goTomorrow').setAttribute('aria-pressed',String(day===lisbonDay(tomorrow)));
  const selected=daily.data;
  const visible=followUpBookings(selected,$('messageFilter').value);
  const dailyKey=JSON.stringify([day,visible,$('messageFilter').value]);
@@ -135,7 +150,7 @@ async function load() {
  const pendingKey=JSON.stringify(pendingItems);
  if(pendingKey!==pendingRenderKey&&!document.querySelector('[data-finance-dirty="true"]')){$('pendingBookings').replaceChildren(...pendingItems.map(booking=>card(booking,true)));pendingRenderKey=pendingKey}
  renderMonth(monthly.data);
- message('status','Agenda atualizada. A lista de mensagens inclui marcações de todos os dias.');
+ message('status','Agenda atualizada. Consulte o dia no topo; as mensagens por enviar incluem todos os dias.');
  await Promise.all([loadContacts(),refreshNotificationHealth(db)]);
  const {data:requests,error:requestError}=await db.from('data_requests').select('id,request_type,details,created_at,status,user_id,requester_email').eq('status','pending').order('created_at');
  $('dataRequests').replaceChildren();
@@ -166,5 +181,5 @@ else{
  bindLogin('email','status',()=>location.reload());
  const user=await currentUser();
  if(user&&!recoveryLink){const {data,error}=await db.from('staff').select('user_id').eq('user_id',user.id).maybeSingle();authorized=!!data&&!error;
- if(authorized){message('devicePushState',await devicePushState());$('login').hidden=true;$('agenda').hidden=false;registerWorker().catch(()=>{});manualBookings=await initManualBookings({db,isKnownContact:phone=>contactsLoaded&&knownContactPhones.has(internationalPhone(phone)),onSaved:async(day,contact)=>{const isNew=contact.isNew;$('manualInvite').replaceChildren();if(isNew){$('manualInvite').append(appInvitationControls(contact,{open:true}));$('manualInvite').hidden=false}else $('manualInvite').hidden=true;selectedDay=day;await load()}});agendaTools=await initAgendaTools({db,onChanged:load,selectDay});await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
+ if(authorized){message('devicePushState',await devicePushState());$('login').hidden=true;$('agenda').hidden=false;registerWorker().catch(()=>{});manualBookings=await initManualBookings({db,isKnownContact:phone=>contactsLoaded&&knownContactPhones.has(internationalPhone(phone)),onSaved:async(day,contact)=>{const isNew=contact.isNew;$('manualInvite').replaceChildren();if(isNew){$('manualInvite').append(appInvitationControls(contact,{open:true}));$('manualInvite').hidden=false}else $('manualInvite').hidden=true;selectedDay=day;$('calendarMonth').value=day.slice(0,7);await load()}});agendaTools=await initAgendaTools({db,onChanged:load,selectDay});await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
 }
