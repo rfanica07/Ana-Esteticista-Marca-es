@@ -1,14 +1,15 @@
+import {createCustomerHistory} from './customer-history.js?v=20261124-private';
 import {initRevenue} from './revenue.js?v=20261124-gains';
-import {financialControls} from './booking-financials.js?v=20261124-attended';
-import {initAppUpdates} from './admin-update.js?v=20261123';
+import {financialControls} from './booking-financials.js?v=20261124-full-advance';
+import {initAppUpdates} from './admin-update.js?v=20261124-private';
 import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261124-day';
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice,devicePushState} from './backend.js?v=20261122-recovery';
 import {appInvitationControls} from './app-invitation.js?v=20261122-invite';
 import {followUpControls,followUpBookings,bookingStage} from './follow-up.js?v=20261123-service-names';
-import {initManualBookings} from './admin-create.js?v=20261123-client-notices';
+import {initManualBookings} from './admin-create.js?v=20261124-history';
 import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings,dayBookings} from './agenda.js?v=20261124-day';
 let authorized = false;
-let agendaTools,manualBookings,revenue;
+let agendaTools,manualBookings,revenue,customerHistory;
 let request = 0;
 let knownContactPhones=new Set();
 let contactsLoaded=false;
@@ -49,6 +50,7 @@ function card(booking, showDay = false) {
  const phone=document.createElement('a');phone.href='tel:+'+internationalPhone(booking.phone);phone.textContent='Ligar';actions.append(phone);
  article.append(title,details,state,actions);
  article.append(financialControls(booking,{db,onSaved:load}));
+ if(customerHistory)article.append(customerHistory.controls(booking.phone));
  if(booking.status==='pending'&&booking.pending_expires_at){const deadline=document.createElement('p');deadline.className='muted';deadline.textContent='Confirmar até '+fullDate(booking.pending_expires_at)+' às '+hour(booking.pending_expires_at);article.append(deadline)}
  if(booking.rescheduled_at){const changed=document.createElement('p');changed.className='muted';changed.textContent='Horário alterado em '+fullDate(booking.rescheduled_at);article.append(changed)}
  if(['pending','confirmed'].includes(booking.status)&&new Date(booking.starts_at)>new Date())article.append(rescheduleControls({db,booking,onSaved:async day=>{selectDay(day)}}));
@@ -57,8 +59,8 @@ function card(booking, showDay = false) {
  return article;
 }
 async function selectDay(day) {
- if(document.querySelector('[data-finance-dirty="true"]')&&!confirm('Há um registo por guardar. Mudar de dia e descartar essas alterações?'))return;
- for(const form of document.querySelectorAll('[data-finance-dirty]'))form.dataset.financeDirty='false';
+ if(document.querySelector('[data-finance-dirty="true"],[data-history-dirty="true"]')&&!confirm('Há um registo por guardar. Mudar de dia e descartar essas alterações?'))return;
+ for(const form of document.querySelectorAll('[data-finance-dirty],[data-history-dirty]')){form.dataset.financeDirty='false';form.dataset.historyDirty='false'};
  selectedDay=day;
  $('calendarMonth').value=day.slice(0,7);
  await load();$('dayAgenda').scrollIntoView({behavior:'smooth',block:'start'});
@@ -86,8 +88,9 @@ async function loadContacts() {
  manualBookings?.setContacts(data);
  knownContactPhones=new Set(data.map(item=>internationalPhone(item.phone)));contactsLoaded=true;
  const query=$('contactSearch').value.toLocaleLowerCase('pt-PT');
- const renderKey=JSON.stringify([query,data]);
+ const renderKey=JSON.stringify([query,data,customerHistory?.key]);
  if(renderKey===contactRenderKey)return;
+ if(document.querySelector('[data-history-dirty="true"]'))return;
  contactRenderKey=renderKey;
  $('contacts').replaceChildren();
  for(const contact of data.filter(item=>(item.name+' '+item.phone).toLocaleLowerCase('pt-PT').includes(query))) {
@@ -98,7 +101,7 @@ async function loadContacts() {
   const email=document.createElement('input');email.type='email';email.placeholder='Email da conta da cliente';email.required=true;email.setAttribute('aria-label','Email da conta de '+contact.name);
   const link=document.createElement('button');link.type='button';link.textContent='Ligar conta';const state=document.createElement('p');state.setAttribute('role','status');
   link.onclick=async()=>{if(!email.reportValidity())return;link.disabled=true;const {error}=await db.rpc('link_contact_account',{p_phone:contact.phone,p_email:email.value.trim()});if(error){state.textContent=error.message;link.disabled=false}else{state.textContent='Conta ligada. As próximas marcações e cancelamentos serão avisados na app.';summary.textContent='✓ Conta da cliente ligada';email.value='';contactRenderKey=null;await loadContacts()}};
-  account.append(summary,help,email,link,state);entry.append(row,book,account,appInvitationControls(contact));$('contacts').append(entry);
+  account.append(summary,help,email,link,state);entry.append(row,book,customerHistory.controls(contact.phone),account,appInvitationControls(contact));$('contacts').append(entry);
  }
  message('contactStatus',data.length+' contactos guardados. Números nacionais de 9 dígitos usam +351.');
 }
@@ -119,16 +122,18 @@ async function load() {
  const monthStart=new Date(month+'-01T00:00:00Z');monthStart.setUTCDate(monthStart.getUTCDate()-1);
  const monthEnd=new Date(month+'-01T00:00:00Z');monthEnd.setUTCMonth(monthEnd.getUTCMonth()+1);monthEnd.setUTCDate(2);
  const fields='*,services(name,category),booking_financials(*)';
- const [daily,pending,monthly]=await Promise.all([
+ const [daily,pending,monthly,profiles]=await Promise.all([
   loadMessageBookings(fields),
   db.from('bookings').select(fields).eq('status','pending').gte('starts_at',new Date().toISOString()).order('starts_at').limit(200),
-  db.from('bookings').select('starts_at,status').gte('starts_at',monthStart.toISOString()).lt('starts_at',monthEnd.toISOString()).order('starts_at')
+  db.from('bookings').select('starts_at,status').gte('starts_at',monthStart.toISOString()).lt('starts_at',monthEnd.toISOString()).order('starts_at'),
+  db.from('customer_private_profiles').select('phone,note,payment_policy,updated_at').order('phone').limit(1000)
  ]);
  if(current!==request)return;
- if(daily.error||pending.error||monthly.error){message('status','Não foi possível atualizar a agenda. Toque em Atualizar agenda.');return}
+ if(daily.error||pending.error||monthly.error||profiles.error){message('status','Não foi possível atualizar a agenda. Toque em Atualizar agenda.');return}
+ customerHistory.setData(daily.data,profiles.data);
  const dayItems=dayBookings(daily.data,day);
- const dayKey=JSON.stringify([day,dayItems]);
- if(dayKey!==agendaDayRenderKey&&!document.querySelector('[data-finance-dirty="true"]')){
+ const dayKey=JSON.stringify([day,dayItems,customerHistory.key]);
+ if(dayKey!==agendaDayRenderKey&&!document.querySelector('[data-finance-dirty="true"],[data-history-dirty="true"]')){
   $('dayBookings').replaceChildren(...dayItems.map(booking=>card(booking)));
   agendaDayRenderKey=dayKey;
  }
@@ -141,15 +146,15 @@ async function load() {
  $('goTomorrow').setAttribute('aria-pressed',String(day===lisbonDay(tomorrow)));
  const selected=daily.data;
  const visible=followUpBookings(selected,$('messageFilter').value);
- const dailyKey=JSON.stringify([day,visible,$('messageFilter').value]);
- if(dailyKey!==dailyRenderKey&&!document.querySelector('[data-finance-dirty="true"]')){$('bookings').replaceChildren(...visible.map(booking=>card(booking,true)));dailyRenderKey=dailyKey}
+ const dailyKey=JSON.stringify([day,visible,$('messageFilter').value,customerHistory.key]);
+ if(dailyKey!==dailyRenderKey&&!document.querySelector('[data-finance-dirty="true"],[data-history-dirty="true"]')){$('bookings').replaceChildren(...visible.map(booking=>card(booking,true)));dailyRenderKey=dailyKey}
  message('count',visible.length+' '+({unsent:'mensagens por enviar',sent:'lembretes enviados · aguardam confirmação',confirmed:'presenças confirmadas',history:'marcações no histórico'})[$('messageFilter').value]);
  $('messageEmpty').hidden=visible.length>0;
  $('messageEmpty').textContent=({unsent:'Tudo em dia! Não há mensagens por enviar.',sent:'Não há lembretes a aguardar a confirmação da cliente.',confirmed:'Ainda não há presenças confirmadas para as próximas marcações.',history:'Ainda não há marcações no histórico.'})[$('messageFilter').value];
  const pendingItems=pendingBookings(pending.data);
  message('pendingCount',pendingItems.length ? pendingItems.length+' pedidos por confirmar' : 'Sem pedidos pendentes');
- const pendingKey=JSON.stringify(pendingItems);
- if(pendingKey!==pendingRenderKey&&!document.querySelector('[data-finance-dirty="true"]')){$('pendingBookings').replaceChildren(...pendingItems.map(booking=>card(booking,true)));pendingRenderKey=pendingKey}
+ const pendingKey=JSON.stringify([pendingItems,customerHistory.key]);
+ if(pendingKey!==pendingRenderKey&&!document.querySelector('[data-finance-dirty="true"],[data-history-dirty="true"]')){$('pendingBookings').replaceChildren(...pendingItems.map(booking=>card(booking,true)));pendingRenderKey=pendingKey}
  renderMonth(monthly.data);
  message('status','Agenda atualizada. Consulte o dia no topo; as mensagens por enviar incluem todos os dias.');
  revenue?.invalidate();
@@ -164,8 +169,8 @@ async function load() {
 }
 $('calendarMonth').onchange=load;
  $('messageFilter').onchange=()=>{for(const button of document.querySelectorAll('[data-message-filter]'))button.setAttribute('aria-pressed',String(button.dataset.messageFilter===$('messageFilter').value));load()};
- for(const button of document.querySelectorAll('[data-message-filter]'))button.onclick=()=>{if(document.querySelector('[data-finance-dirty="true"]')&&!confirm('Há um registo por guardar. Mudar de lista e descartar essas alterações?'))return;for(const form of document.querySelectorAll('[data-finance-dirty]'))form.dataset.financeDirty='false';$('messageFilter').value=button.dataset.messageFilter;$('messageFilter').onchange()};
-$('refresh').onclick=()=>{if(document.querySelector('[data-finance-dirty="true"]')&&!confirm('Há um registo por guardar. Atualizar a agenda e descartar essas alterações?'))return;for(const form of document.querySelectorAll('[data-finance-dirty]'))form.dataset.financeDirty='false';load()};
+ for(const button of document.querySelectorAll('[data-message-filter]'))button.onclick=()=>{if(document.querySelector('[data-finance-dirty="true"],[data-history-dirty="true"]')&&!confirm('Há um registo por guardar. Mudar de lista e descartar essas alterações?'))return;for(const form of document.querySelectorAll('[data-finance-dirty],[data-history-dirty]')){form.dataset.financeDirty='false';form.dataset.historyDirty='false'};$('messageFilter').value=button.dataset.messageFilter;$('messageFilter').onchange()};
+$('refresh').onclick=()=>{if(document.querySelector('[data-finance-dirty="true"],[data-history-dirty="true"]')&&!confirm('Há um registo por guardar. Atualizar a agenda e descartar essas alterações?'))return;for(const form of document.querySelectorAll('[data-finance-dirty],[data-history-dirty]')){form.dataset.financeDirty='false';form.dataset.historyDirty='false'};load()};
 $('goRevenue').onclick=()=>{$('revenuePanel').open=true;$('revenuePanel').scrollIntoView({behavior:'smooth',block:'start'})};
 $('contactSearch').oninput=loadContacts;
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
@@ -184,5 +189,5 @@ else{
  bindLogin('email','status',()=>location.reload());
  const user=await currentUser();
  if(user&&!recoveryLink){const {data,error}=await db.from('staff').select('user_id').eq('user_id',user.id).maybeSingle();authorized=!!data&&!error;
- if(authorized){revenue=initRevenue({db});message('devicePushState',await devicePushState());$('login').hidden=true;$('agenda').hidden=false;registerWorker().catch(()=>{});manualBookings=await initManualBookings({db,isKnownContact:phone=>contactsLoaded&&knownContactPhones.has(internationalPhone(phone)),onSaved:async(day,contact)=>{const isNew=contact.isNew;$('manualInvite').replaceChildren();if(isNew){$('manualInvite').append(appInvitationControls(contact,{open:true}));$('manualInvite').hidden=false}else $('manualInvite').hidden=true;selectedDay=day;$('calendarMonth').value=day.slice(0,7);await load()}});agendaTools=await initAgendaTools({db,onChanged:load,selectDay});await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
+ if(authorized){customerHistory=createCustomerHistory({db,onSaved:load});revenue=initRevenue({db});message('devicePushState',await devicePushState());$('login').hidden=true;$('agenda').hidden=false;registerWorker().catch(()=>{});manualBookings=await initManualBookings({db,getClientHistory:phone=>customerHistory.hint(phone),isKnownContact:phone=>contactsLoaded&&knownContactPhones.has(internationalPhone(phone)),onSaved:async(day,contact)=>{const isNew=contact.isNew;$('manualInvite').replaceChildren();if(isNew){$('manualInvite').append(appInvitationControls(contact,{open:true}));$('manualInvite').hidden=false}else $('manualInvite').hidden=true;selectedDay=day;$('calendarMonth').value=day.slice(0,7);await load()}});agendaTools=await initAgendaTools({db,onChanged:load,selectDay});await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
 }

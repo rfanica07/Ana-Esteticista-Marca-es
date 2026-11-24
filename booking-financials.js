@@ -1,8 +1,8 @@
 import {lisbonDay} from './agenda.js';
 const money=value=>new Intl.NumberFormat('pt-PT',{style:'currency',currency:'EUR'}).format(value);
-export function paymentAmounts(total,depositReceived,paidInFull){
+export function paymentAmounts(total,depositReceived,paidInFull,percent=50){
  const cents=Math.round(Number(total)*100);
- const deposit=depositReceived?Math.round(cents/2):0;
+ const deposit=depositReceived?Math.round(cents*percent/100):0;
  const balance=paidInFull?cents-deposit:0;
  return {deposit:deposit/100,balance:balance/100,received:(deposit+balance)/100,outstanding:(cents-deposit-balance)/100};
 }
@@ -13,7 +13,7 @@ export function financialControls(booking,{db,onSaved}){
  const summary=document.createElement('summary');
  const received=Number(record?.deposit_amount||0)+Number(record?.balance_amount||0);
  const paid=record&&Number(record.service_total)>0&&received>=Number(record.service_total);
- summary.textContent='👤 Presença e pagamento · '+attendanceLabel(record?.attendance)+(paid?' · Pago':record?.deposit_amount>0?' · Sinal recebido':record?.deposit_required?' · 50% por receber':'');
+ summary.textContent='👤 Presença e pagamento · '+attendanceLabel(record?.attendance)+(paid?' · Pago':record?.deposit_amount>0?' · Sinal recebido':record?.deposit_required?' · '+(record.deposit_percent||50)+'% por receber':'');
  root.append(summary);
  const form=document.createElement('form'),fields=document.createElement('fieldset');form.dataset.financeDirty='false';
  const input=(type,value='')=>{const item=document.createElement('input');item.type=type;item.value=value;return item};
@@ -25,17 +25,18 @@ export function financialControls(booking,{db,onSaved}){
  attendance.value=record.attendance;
  const total=input('number',record.service_total);total.min='0';total.step='0.01';total.required=true;
  const required=input('checkbox');required.checked=record.deposit_required;
+ const percent=document.createElement('select');for(const value of ['50','100']){const option=document.createElement('option');option.value=value;option.textContent=value+'% antecipado';percent.append(option)}percent.value=String(record.deposit_percent||50);
  const deposit=input('checkbox');deposit.checked=Number(record.deposit_amount)>0;
  const full=input('checkbox');full.checked=paid;
  const today=lisbonDay(new Date());
  const depositDate=input('date',record.deposit_received_on||today);depositDate.max=today;
  const balanceDate=input('date',record.balance_received_on||today);balanceDate.max=today;
- const depositRow=label('Data em que recebeu o sinal',depositDate),balanceRow=label('Data em que recebeu o restante pagamento',balanceDate);
+ const depositRow=label('Data em que recebeu o pagamento antecipado',depositDate),balanceRow=label('Data em que recebeu o restante pagamento',balanceDate);
  const preview=document.createElement('p');preview.className='payment-preview';preview.setAttribute('aria-live','polite');
  const hint=document.createElement('p');hint.className='muted';hint.textContent=record.price_source==='catalog_reference'?'Preço de referência do catálogo atual. Confirme o preço acordado nesta marcação antes de guardar.':'O preço desta marcação fica guardado, mesmo que o catálogo mude.';
  const notice=document.createElement('p');notice.className='muted';notice.textContent='Ao marcar Compareceu / Serviço realizado, o pagamento fica concluído automaticamente: apenas o restante se já recebeu sinal, ou o total se não recebeu. Uma falta mantém o sinal já recebido e não acrescenta pagamentos.';
- const refresh=()=>{if(deposit.checked)required.checked=true;depositRow.hidden=!deposit.checked;depositDate.required=deposit.checked;balanceRow.hidden=!full.checked;balanceDate.required=full.checked;const values=paymentAmounts(total.value,deposit.checked,full.checked);preview.textContent='Sinal de 50%: '+money(paymentAmounts(total.value,true,false).deposit)+' · Recebido: '+money(values.received)+' · Por receber: '+money(values.outstanding)};
- fields.append(label('Presença da cliente',attendance),label('Preço acordado (€)',total),hint,label('Exigir sinal de 50% nesta marcação',required),label('💶 Sinal de 50% recebido',deposit),depositRow,label('✓ Pagamento total concluído',full),balanceRow,preview,notice);
+ const refresh=()=>{if(deposit.checked)required.checked=true;depositRow.hidden=!deposit.checked;depositDate.required=deposit.checked;balanceRow.hidden=!full.checked;balanceDate.required=full.checked;const values=paymentAmounts(total.value,deposit.checked,full.checked,Number(percent.value));preview.textContent='Antecipado ('+percent.value+'%): '+money(paymentAmounts(total.value,true,false,Number(percent.value)).deposit)+' · Recebido: '+money(values.received)+' · Por receber: '+money(values.outstanding)};
+ fields.append(label('Presença da cliente',attendance),label('Preço acordado (€)',total),hint,label('Exigir pagamento antecipado nesta marcação',required),label('Valor a pedir antecipadamente',percent),label('💶 Pagamento antecipado recebido',deposit),depositRow,label('✓ Pagamento total concluído',full),balanceRow,preview,notice);
  const save=document.createElement('button');save.type='submit';save.className='primary';save.textContent='Guardar presença e pagamento';fields.append(save);form.append(fields,status);root.append(form);
  attendance.onchange=()=>{if(attendance.value==='attended'){full.checked=true;balanceDate.value=record.balance_received_on||lisbonDay(new Date(booking.starts_at))}else if(record.attendance!=='attended'){full.checked=paid}refresh()};
  form.oninput=()=>{form.dataset.financeDirty='true';refresh()};form.onchange=()=>{form.dataset.financeDirty='true';refresh()};
@@ -43,7 +44,7 @@ export function financialControls(booking,{db,onSaved}){
  form.onsubmit=async event=>{
   event.preventDefault();if(busy||!form.reportValidity())return;busy=true;fields.disabled=true;root.setAttribute('aria-busy','true');status.textContent='A guardar…';
   try{
-   const {error}=await db.rpc('save_booking_financials',{p_booking:booking.id,p_attendance:attendance.value,p_total:Number(total.value),p_deposit_required:required.checked,p_deposit_received:deposit.checked,p_deposit_date:deposit.checked?depositDate.value:null,p_paid_in_full:full.checked,p_balance_date:full.checked?balanceDate.value:null,p_version:record.updated_at});
+   const {error}=await db.rpc('save_booking_financials',{p_booking:booking.id,p_attendance:attendance.value,p_total:Number(total.value),p_deposit_required:required.checked,p_deposit_received:deposit.checked,p_deposit_date:deposit.checked?depositDate.value:null,p_paid_in_full:full.checked,p_balance_date:full.checked?balanceDate.value:null,p_version:record.updated_at,p_deposit_percent:Number(percent.value)});
    if(error)throw error;
    form.dataset.financeDirty='false';status.textContent='Presença e pagamento guardados.';await onSaved();
   }catch(error){status.textContent='Não foi possível guardar: '+error.message}
