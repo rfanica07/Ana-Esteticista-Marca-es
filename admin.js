@@ -1,4 +1,4 @@
-import {financialControls} from './booking-financials.js?v=20261124';
+import {financialControls} from './booking-financials.js?v=20261124-attended';
 import {initAppUpdates} from './admin-update.js?v=20261123';
 import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261122-improvements';
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice,devicePushState} from './backend.js?v=20261122-recovery';
