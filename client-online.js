@@ -1,5 +1,6 @@
+import {initPushHealth} from './push-health.js?v=20261125';
 import {closedDayReason} from './closure-calendar.js?v=20261125';
-import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice} from './backend.js?v=20261122-recovery';
+import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice} from './backend.js?v=20261125-push-recovery';
 registerWorker().catch(()=>{});
 const notice=document.querySelector('.notice');
 const form=document.getElementById('bookingForm');
@@ -84,6 +85,7 @@ if(!db){
   const button=document.getElementById('enableClientPush');button.disabled=true;
   try{await enablePush();message('clientPushStatus','Este telemóvel está registado para receber as respostas da Ana.')}catch(error){message('clientPushStatus',error.message)}finally{button.disabled=false}
  };
+ const clientPushHealth=initPushHealth({db,root:document.getElementById('clientPushHealth')});document.getElementById('enableClientPush').hidden=true;
  const updateLogin=async()=>{
   if(recoveryLink)return;
   const user=await currentUser();
@@ -94,7 +96,7 @@ if(!db){
   document.getElementById('openAccount').textContent=user?'A minha conta':'Entrar';
   document.getElementById('clientSignOut').hidden=!user;
   document.getElementById('privacyControls').hidden=!user;
-  await refreshAccount();
+  await refreshAccount();if(user)await clientPushHealth.refresh(true);
   message('loginStatus',user?'Sessão iniciada. Pode enviar o pedido.':'Entre com email e palavra-passe para enviar o pedido.');
  };
  bindLogin('clientEmail','accountStatus',async()=>{await updateLogin();dialog.close();if(!anaAreaLink.hidden)location.href='admin.html'});

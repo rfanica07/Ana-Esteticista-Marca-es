@@ -1,11 +1,13 @@
 begin;
 do $$
-declare client_id uuid:=gen_random_uuid();other_id uuid:=gen_random_uuid();booking uuid:=gen_random_uuid();service text;events integer;
+declare client_id uuid:=gen_random_uuid();other_id uuid:=gen_random_uuid();booking uuid:=gen_random_uuid();service text;events integer;test_day date;
 begin
  insert into auth.users(id,email) values(client_id,'notify-test@example.invalid'),(other_id,'notify-other@example.invalid');
- select id into service from public.services limit 1;
+ select id into service from public.services where minutes=10 limit 1;
+ select d::date into test_day from generate_series(current_date+60,current_date+100,interval '1 day') d where private.closed_day_reason(d::date) is null limit 1;
  insert into public.bookings(id,customer_id,service_id,customer_name,phone,starts_at,ends_at,status)
- values(booking,client_id,service,'Teste notificações','900000000',now()+interval '100 days',now()+interval '100 days 1 hour','pending');
+ values(booking,client_id,service,'Teste notificações','900000000',(test_day+time '09:00') at time zone 'Europe/Lisbon',(test_day+time '09:10') at time zone 'Europe/Lisbon','pending');
+ if (select count(*) from public.notification_events where booking_id=booking and notification_kind='request')<>1 then raise exception 'Request did not queue staff notification';end if;
  update public.bookings set status='confirmed' where id=booking;
  update public.bookings set status='confirmed' where id=booking;
  select count(*) into events from public.notification_events where booking_id=booking and notification_kind='client_status' and recipient_id=client_id and booking_status='confirmed';
@@ -22,4 +24,5 @@ begin
  execute 'reset role';
  if not (select relrowsecurity from pg_class where oid='public.notification_events'::regclass) then raise exception 'RLS must be enabled';end if;
 end $$;
+select 'PASS: client request queues staff notice, approval queues only one client notice, inbox/subscription isolation. Rolled back.' as result;
 rollback;

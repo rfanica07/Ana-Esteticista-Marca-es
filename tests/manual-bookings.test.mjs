@@ -90,3 +90,7 @@ elements.manualNewClient.onclick();assert.equal(elements.manualName.value,'');as
 console.log('PASS: existing contact selection, phone search, refresh preservation, booking payload and contact shortcut');
 
 const beforeHoliday=waiting.length;elements.manualDay.value='2026-12-01';await elements.manualDay.onchange();assert.equal(waiting.length,beforeHoliday);assert.equal(elements.manualSubmit.disabled,true);assert.equal(elements.manualTime.disabled,true);assert.match(elements.manualStatus.textContent,/Feriado/);
+const prep=controller.startFromBooking({customer_name:'Maria Silva',phone:'912345678',service_id:'gel'});
+while(waiting.length===beforeHoliday)await Promise.resolve();
+waiting.at(-1).resolve({data:[{slot:'10:00'}],error:null});await prep;
+assert.equal(elements.manualName.value,'Maria Silva');assert.equal(elements.manualService.value,'gel');assert.equal(elements.manualSubmit.disabled,true,'preparing a replacement must never create or submit a booking');

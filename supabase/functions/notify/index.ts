@@ -24,7 +24,12 @@ Deno.serve(async req => {
   const booking = event.bookings as unknown as {status:string;starts_at:string;customer_id:string};
   let pushPayload: {id:string;body?:string;day?:string;audience?:string} = {id:eventId};
   let recipientIds:string[]=[];
-  if(event.notification_kind === 'client_status') {
+  if(event.notification_kind === 'device_test'){
+   if(!event.recipient_id)return new Response('Invalid recipient',{status:400});
+   const {data:staffMember}=await db.from('staff').select('user_id').eq('user_id',event.recipient_id).maybeSingle();
+   recipientIds=[event.recipient_id];
+   pushPayload={id:eventId,audience:staffMember?'staff':'client',body:'Teste de notificações: este telemóvel está a receber os avisos da Ana Esteticista 🌸'};
+  } else if(event.notification_kind === 'client_status') {
    if(!booking || booking.customer_id!==event.recipient_id || booking.status!==event.booking_status || !['confirmed','declined','cancelled'].includes(event.booking_status))return new Response('Obsolete response');
    recipientIds=[event.recipient_id];
    const descriptions={confirmed:'A Ana confirmou a sua marcação.',declined:'A Ana não conseguiu aceitar o seu pedido.',cancelled:'A sua marcação foi cancelada.'};
@@ -68,7 +73,7 @@ Deno.serve(async req => {
   if (claimError) throw claimError;
   if (!acquired) return new Response('Already processing',{status:202});
   claimed = true;
-  if(event.notification_kind!=='client_status'){
+  if(!['client_status','device_test'].includes(event.notification_kind)){
    const {data:staff,error:staffError}=await db.from('staff').select('user_id');
    if(staffError)throw staffError;
    recipientIds=staff?.map(s=>s.user_id)||[];
