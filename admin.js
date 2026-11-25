@@ -1,12 +1,13 @@
+import {closedDayReason} from './closure-calendar.js?v=20261125';
 import {createCustomerHistory} from './customer-history.js?v=20261124-private';
 import {initRevenue} from './revenue.js?v=20261124-gains';
 import {financialControls} from './booking-financials.js?v=20261124-full-advance';
 import {initAppUpdates} from './admin-update.js?v=20261124-private';
-import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261124-day';
+import {initAgendaTools,rescheduleControls,refreshNotificationHealth} from './agenda-tools.js?v=20261125-closed';
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice,devicePushState} from './backend.js?v=20261122-recovery';
 import {appInvitationControls} from './app-invitation.js?v=20261122-invite';
-import {followUpControls,followUpBookings,bookingStage} from './follow-up.js?v=20261123-service-names';
-import {initManualBookings} from './admin-create.js?v=20261124-history';
+import {followUpControls,followUpBookings,bookingStage,customerConfirmationControls} from './follow-up.js?v=20261125-direct-confirm';
+import {initManualBookings} from './admin-create.js?v=20261125-closed';
 import {lisbonDay,hour,fullDate,internationalPhone,pendingBookings,dayBookings} from './agenda.js?v=20261124-day';
 let authorized = false;
 let agendaTools,manualBookings,revenue,customerHistory;
@@ -24,6 +25,7 @@ $('calendarMonth').value = selectedDay.slice(0,7);
 $('signOut').onclick = async () => {await signOutDevice();location.reload()};
 function card(booking, showDay = false) {
  const article=document.createElement('article');
+ const closure=new Date(booking.starts_at)>new Date()?closedDayReason(lisbonDay(booking.starts_at)):null;
  const title=document.createElement('h3');
  title.textContent=(showDay ? fullDate(booking.starts_at)+' · ' : '')+hour(booking.starts_at)+'–'+hour(booking.ends_at)+' · '+booking.customer_name;
  const details=document.createElement('p');
@@ -34,6 +36,7 @@ function card(booking, showDay = false) {
  const actions=document.createElement('div');actions.className='actions';
  const transitions=new Date(booking.starts_at)>new Date()?booking.status==='pending' ? [['confirmed','Confirmar'],['declined','Recusar']] : booking.status==='confirmed' ? [['cancelled','Cancelar']] : []:[];
  for(const [status,label] of transitions) {
+  if(closure&&status==='confirmed')continue;
   const button=document.createElement('button');button.textContent=label;
   button.onclick=async()=>{
    if(['cancelled','declined'].includes(status)&&!confirm(label+' esta marcação? A cliente será avisada na app.'))return;
@@ -49,12 +52,14 @@ function card(booking, showDay = false) {
 
  const phone=document.createElement('a');phone.href='tel:+'+internationalPhone(booking.phone);phone.textContent='Ligar';actions.append(phone);
  article.append(title,details,state,actions);
+ if(closure){const warning=document.createElement('p');warning.className='closed-warning';warning.textContent='Dia encerrado: '+closure+'. Reagende ou cancele esta marcação.';article.append(warning)}
+ else if(booking.status==='confirmed'&&new Date(booking.starts_at)>new Date())article.append(customerConfirmationControls(booking,{db,onSaved:load}));
  article.append(financialControls(booking,{db,onSaved:load}));
  if(customerHistory)article.append(customerHistory.controls(booking.phone));
  if(booking.status==='pending'&&booking.pending_expires_at){const deadline=document.createElement('p');deadline.className='muted';deadline.textContent='Confirmar até '+fullDate(booking.pending_expires_at)+' às '+hour(booking.pending_expires_at);article.append(deadline)}
  if(booking.rescheduled_at){const changed=document.createElement('p');changed.className='muted';changed.textContent='Horário alterado em '+fullDate(booking.rescheduled_at);article.append(changed)}
  if(['pending','confirmed'].includes(booking.status)&&new Date(booking.starts_at)>new Date())article.append(rescheduleControls({db,booking,onSaved:async day=>{selectDay(day)}}));
- if(booking.status==='confirmed'&&new Date(booking.starts_at)>new Date())article.append(followUpControls(booking,{db,onSaved:load}));
+ if(!closure&&booking.status==='confirmed'&&new Date(booking.starts_at)>new Date())article.append(followUpControls(booking,{db,onSaved:load}));
  if(['pending','confirmed'].includes(booking.status)&&new Date(booking.starts_at)>new Date())article.append(appInvitationControls({name:booking.customer_name,phone:booking.phone}));
  return article;
 }
@@ -79,6 +84,7 @@ function renderMonth(bookings) {
   const button=document.createElement('button');button.textContent=day+(active.length?' · '+active.length:'');
   button.setAttribute('aria-label',key+' · '+active.length+' marcações');
   button.setAttribute('aria-pressed',String(key===selectedDay));
+  const closed=closedDayReason(key);if(closed){button.classList.add('closed-day');button.title=closed;button.setAttribute('aria-label',key+' · '+closed+' · '+active.length+' marcações')}
   if(active.length)button.classList.add('has-bookings');button.onclick=()=>selectDay(key);grid.append(button);
  }
 }
@@ -130,6 +136,9 @@ async function load() {
  ]);
  if(current!==request)return;
  if(daily.error||pending.error||monthly.error||profiles.error){message('status','Não foi possível atualizar a agenda. Toque em Atualizar agenda.');return}
+ const conflicts=daily.data.filter(b=>['pending','confirmed'].includes(b.status)&&new Date(b.starts_at)>new Date()&&closedDayReason(lisbonDay(b.starts_at)));
+ $('closureConflicts').hidden=!conflicts.length;$('closureConflictList').replaceChildren();
+ for(const booking of conflicts){const row=document.createElement('p');row.textContent=fullDate(booking.starts_at)+' · '+hour(booking.starts_at)+' · '+booking.customer_name+' · '+closedDayReason(lisbonDay(booking.starts_at))+' ';const button=document.createElement('button');button.type='button';button.textContent='Ver dia para reagendar';button.onclick=()=>selectDay(lisbonDay(booking.starts_at));row.append(button);$('closureConflictList').append(row)}
  customerHistory.setData(daily.data,profiles.data);
  const dayItems=dayBookings(daily.data,day);
  const dayKey=JSON.stringify([day,dayItems,customerHistory.key]);
@@ -140,7 +149,7 @@ async function load() {
  $('dayAgendaTitle').textContent='📅 Agenda de '+fullDate(day+'T12:00:00Z');
  message('dayCount',dayItems.length+' '+(dayItems.length===1?'marcação':'marcações')+' · dia completo, por horário');
  $('dayEmpty').hidden=dayItems.length>0;
- $('dayEmpty').textContent='Não há marcações para este dia.';
+ $('dayEmpty').textContent=closedDayReason(day)?'Dia encerrado: '+closedDayReason(day)+'. Não há marcações.':'Não há marcações para este dia.';
  $('goToday').setAttribute('aria-pressed',String(day===lisbonDay(new Date())));
  const tomorrow=new Date(lisbonDay(new Date())+'T12:00:00Z');tomorrow.setUTCDate(tomorrow.getUTCDate()+1);
  $('goTomorrow').setAttribute('aria-pressed',String(day===lisbonDay(tomorrow)));
@@ -189,5 +198,5 @@ else{
  bindLogin('email','status',()=>location.reload());
  const user=await currentUser();
  if(user&&!recoveryLink){const {data,error}=await db.from('staff').select('user_id').eq('user_id',user.id).maybeSingle();authorized=!!data&&!error;
- if(authorized){customerHistory=createCustomerHistory({db,onSaved:load});revenue=initRevenue({db});message('devicePushState',await devicePushState());$('login').hidden=true;$('agenda').hidden=false;registerWorker().catch(()=>{});manualBookings=await initManualBookings({db,getClientHistory:phone=>customerHistory.hint(phone),isKnownContact:phone=>contactsLoaded&&knownContactPhones.has(internationalPhone(phone)),onSaved:async(day,contact)=>{const isNew=contact.isNew;$('manualInvite').replaceChildren();if(isNew){$('manualInvite').append(appInvitationControls(contact,{open:true}));$('manualInvite').hidden=false}else $('manualInvite').hidden=true;selectedDay=day;$('calendarMonth').value=day.slice(0,7);await load()}});agendaTools=await initAgendaTools({db,onChanged:load,selectDay});await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
+ if(authorized){customerHistory=createCustomerHistory({db,onSaved:load});revenue=initRevenue({db});message('devicePushState',await devicePushState());$('login').hidden=true;$('agenda').hidden=false;registerWorker().catch(()=>{});manualBookings=await initManualBookings({db,getClosedReason:closedDayReason,getClientHistory:phone=>customerHistory.hint(phone),isKnownContact:phone=>contactsLoaded&&knownContactPhones.has(internationalPhone(phone)),onSaved:async(day,contact)=>{const isNew=contact.isNew;$('manualInvite').replaceChildren();if(isNew){$('manualInvite').append(appInvitationControls(contact,{open:true}));$('manualInvite').hidden=false}else $('manualInvite').hidden=true;selectedDay=day;$('calendarMonth').value=day.slice(0,7);await load()}});agendaTools=await initAgendaTools({db,onChanged:load,selectDay});await load()}else message('status','Esta conta não está autorizada a gerir a agenda.')}
 }
