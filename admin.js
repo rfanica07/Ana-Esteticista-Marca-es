@@ -1,5 +1,5 @@
 import {initPushHealth} from './push-health.js?v=20261125';
-import {alternativeDateControls} from './alternative-date.js?v=20261125';
+import {alternativeDateControls} from './alternative-date.js?v=20261125-service';
 import {closedDayReason} from './closure-calendar.js?v=20261125';
 import {createCustomerHistory} from './customer-history.js?v=20261124-private';
 import {initRevenue} from './revenue.js?v=20261124-gains';
@@ -56,7 +56,7 @@ function card(booking, showDay = false) {
 
  const phone=document.createElement('a');phone.href='tel:+'+internationalPhone(booking.phone);phone.textContent='Ligar';actions.append(phone);
  article.append(title,details,state,actions);
- if(closure){const warning=document.createElement('p');warning.className='closed-warning';warning.textContent='Dia encerrado: '+closure+'. Reagende ou cancele esta marcação.';article.append(warning)}
+ if(closure){const warning=document.createElement('p');warning.className='closed-warning';warning.textContent='Dia encerrado: '+closure+'. '+(['pending','confirmed'].includes(booking.status)?'Reagende ou cancele esta marcação.':'Escolha outro dia para a nova marcação.');article.append(warning)}
  else if(booking.status==='confirmed'&&new Date(booking.starts_at)>new Date())article.append(customerConfirmationControls(booking,{db,onSaved:load}));
  if(booking.booking_source==='manual'&&(!booking.customer_id||booking.customer_id===staffUserId)){const hint=document.createElement('p');hint.className='muted';hint.textContent='Para avisos na app desta cliente, ligue a conta dela pelo email nos contactos. Também pode enviar mensagem pelo WhatsApp.';article.append(hint)}
  article.append(financialControls(booking,{db,onSaved:load}));

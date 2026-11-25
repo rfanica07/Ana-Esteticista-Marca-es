@@ -1,7 +1,8 @@
+import {serviceDescription} from './follow-up.js?v=20261125-direct-confirm';
 import {fullDate,hour,internationalPhone} from './agenda.js';
 export function alternativeDateMessage(booking){return `Olá ${booking.customer_name}! É a Ana Esteticista 🌸
 
-Não conseguirei atendê-la na data pedida para ${booking.services?.name||'o seu serviço'}: ${fullDate(booking.starts_at)}, às ${hour(booking.starts_at)} 🕒.
+Não conseguirei atendê-la na data pedida para ${serviceDescription(booking.services||{})}: ${fullDate(booking.starts_at)}, às ${hour(booking.starts_at)} 🕒.
 
 Podemos combinar outra data? Responda a esta mensagem com os dias e horários que lhe dão mais jeito, ou escolha um novo horário na app:
 https://ana-esteticista.pages.dev/
