@@ -51,8 +51,8 @@ export function bindLogin(emailId,statusId,onLogin){
  document.getElementById('signup').onclick=()=>submit(true);
 }
 export async function currentUser(){if(!db)return null;const {data,error}=await db.auth.getUser();return error?null:data.user}
-export async function registerWorker(){if('serviceWorker' in navigator&&location.protocol==='https:')return navigator.serviceWorker.register('./sw.js?v=20261122',{scope:'./'})}
-export async function enablePush(){
+export async function registerWorker(){if('serviceWorker' in navigator&&location.protocol==='https:')return navigator.serviceWorker.register('./sw.js?v=20261125-recovery',{scope:'./'})}
+export async function enablePush({renew=false}={}){
  if(!('PushManager' in window)||!('Notification' in window))throw Error('Abra a app instalada no ecrã principal para ativar notificações. No iPhone, use Partilhar e Adicionar ao ecrã principal.');
  if(!cfg.vapidPublicKey)throw Error('As notificações ainda precisam de ser configuradas.');
  const user=await currentUser();if(!user)throw Error('Entre primeiro na sua conta.');
@@ -61,7 +61,9 @@ export async function enablePush(){
  await registerWorker();const reg=await navigator.serviceWorker.ready;
  const encoded=cfg.vapidPublicKey.replace(/-/g,'+').replace(/_/g,'/');
  const key=Uint8Array.from(atob(encoded+'='.repeat((4-encoded.length%4)%4)),c=>c.charCodeAt(0));
- const sub=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+ let sub=await reg.pushManager.getSubscription();
+ if(renew&&sub){await sub.unsubscribe();sub=null}
+ sub=sub||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
  const {error}=await db.from('push_subscriptions').upsert({endpoint:sub.endpoint,user_id:user.id,subscription:sub.toJSON()});
  if(error)throw Error('Não foi possível registar este dispositivo. Termine a sessão e volte a entrar para tentar novamente.');
 }
@@ -81,4 +83,16 @@ export async function devicePushState(){
  const user=await currentUser();if(!user)return 'Entre para verificar as notificações.';
  const {data,error}=await db.from('push_subscriptions').select('endpoint').eq('endpoint',sub.endpoint).eq('user_id',user.id).maybeSingle();
  return data&&!error?'Este dispositivo está registado para receber avisos. A entrega depende também das definições do telemóvel.':'Toque em Ativar notificações para ligar este dispositivo à conta atual.';
+}
+
+export async function recoverPushRegistration(){
+ if(!('PushManager' in window)||!('Notification' in window))return {registered:false,message:'Neste navegador não é possível receber avisos. No iPhone, abra a app instalada no ecrã principal.'};
+ if(Notification.permission!=='granted')return {registered:false,message:'Este dispositivo não tem autorização para receber notificações. Ative-as para não perder pedidos ou respostas.'};
+ const user=await currentUser();if(!user)return {registered:false,message:'Entre na sua conta para verificar as notificações.'};
+ try{await registerWorker();const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
+ if(!sub)return {registered:false,message:'As notificações estão autorizadas, mas falta registar este dispositivo. Toque em Ativar ou reparar.'};
+ const {error}=await db.from('push_subscriptions').upsert({endpoint:sub.endpoint,user_id:user.id,subscription:sub.toJSON()});
+ if(error)throw error;
+ return {registered:true,message:'Este dispositivo está registado para receber avisos. Pode enviar um teste.'};
+ }catch{return {registered:false,message:'Não foi possível recuperar o registo. Toque em Ativar ou reparar notificações.'}}
 }

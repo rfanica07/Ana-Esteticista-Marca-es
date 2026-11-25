@@ -32,6 +32,12 @@ export async function initManualBookings({db,onSaved,isKnownContact=()=>false,ge
  picker.onchange=()=>{if(el('manualAccountEmail'))el('manualAccountEmail').value='';selectedPhone=picker.value;const contact=selected();name.value=contact?.name||'';phone.value=contact?.phone||'';historyHint();el('manualInvite').hidden=true};
  const controller={
   setContacts(items){contacts=items;contactsReady=true;if(selectedPhone&&!selected()){selectedPhone='';name.value='';phone.value=''}renderContacts();historyHint()},
+  async startFromBooking(booking){
+   if(!controller.startForContact({name:booking.customer_name,phone:booking.phone}))return;
+   service.value=booking.service_id;day.value=today;
+   for(let i=0;i<14&&getClosedReason(day.value);i++){const next=new Date(day.value+'T12:00:00Z');next.setUTCDate(next.getUTCDate()+1);day.value=next.toISOString().slice(0,10)}
+   await loadSlots();status('Dados preenchidos. Combine uma nova data com a cliente e escolha o horário antes de guardar.');
+  },
   startForContact(contact){
    if(busy)return false;
    if(el('manualAccountEmail'))el('manualAccountEmail').value='';
