@@ -1,4 +1,5 @@
-import {fullDate,hour,internationalPhone} from './agenda.js';
+import {closedDayReason} from './closure-calendar.js?v=20261125';
+import {fullDate,hour,internationalPhone,lisbonDay} from './agenda.js';
 export function serviceEmoji(service={}){
  const normalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const category=normalize(service.category),name=normalize(service.name);
@@ -61,6 +62,19 @@ export function followUpControls(booking,{db,onSaved=()=>{}}={}){
  actions.append(copy);
  if(booking.follow_up_sent_at){const sent=document.createElement('p');sent.className='follow-up-sent';sent.textContent='Marcado como enviado em '+fullDate(booking.follow_up_sent_at)+' às '+hour(booking.follow_up_sent_at);actions.append(sent)}
  else if(db&&new Date(booking.starts_at)>new Date()){const mark=document.createElement('button');mark.type='button';mark.textContent='✓ Enviada';mark.className='primary';mark.setAttribute('aria-label','Marcar mensagem para '+booking.customer_name+' como enviada');mark.onclick=async()=>{mark.disabled=true;const {error}=await db.rpc('mark_follow_up_sent',{p_id:booking.id});if(error){status.textContent=error.message;mark.disabled=false}else{status.textContent='Lembrete marcado como enviado.';await onSaved()}};actions.append(mark)}
- if(db&&booking.follow_up_sent_at&&!booking.customer_confirmed_at&&booking.status==='confirmed'&&new Date(booking.starts_at)>new Date()){const confirm=document.createElement('button');confirm.type='button';confirm.className='primary';confirm.textContent='✓ Cliente confirmou';confirm.onclick=async()=>{confirm.disabled=true;const {error}=await db.rpc('confirm_customer_booking',{p_id:booking.id});if(error){status.textContent=error.message;confirm.disabled=false}else{status.textContent='Confirmação da cliente guardada.';await onSaved()}};actions.append(confirm)}
+
  panel.append(title,note,text,actions,status);return panel;
+}
+
+export function canConfirmCustomer(booking,now=new Date()){
+ return booking.status==='confirmed'&&!booking.customer_confirmed_at&&new Date(booking.starts_at)>new Date(now)&&!closedDayReason(lisbonDay(booking.starts_at));
+}
+export function customerConfirmationControls(booking,{db,onSaved=()=>{}}={}){
+ const root=document.createElement('div');root.className='customer-confirmation';
+ if(!db||!canConfirmCustomer(booking))return root;
+ const button=document.createElement('button');button.type='button';button.className='primary';button.textContent='✓ Cliente confirmou';button.setAttribute('aria-label','Registar que '+booking.customer_name+' confirmou a presença');
+ const note=document.createElement('p');note.className='muted';note.textContent='Use depois de a cliente responder que vai comparecer.'+(!booking.follow_up_sent_at?' Também regista o lembrete como enviado.':'');
+ const status=document.createElement('p');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
+ button.onclick=async()=>{if(button.disabled)return;button.disabled=true;root.setAttribute('aria-busy','true');status.textContent='A guardar confirmação…';try{const {error}=await db.rpc('confirm_customer_booking',{p_id:booking.id});if(error)throw error;status.textContent='Confirmação da cliente guardada.';await onSaved()}catch(error){status.textContent='Não foi possível guardar: '+error.message;button.disabled=false}finally{root.removeAttribute('aria-busy')}};
+ root.append(button,note,status);return root;
 }

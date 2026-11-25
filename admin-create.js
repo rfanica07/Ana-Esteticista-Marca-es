@@ -1,4 +1,4 @@
-export async function initManualBookings({db,onSaved,isKnownContact=()=>false,getClientHistory=()=>''}) {
+export async function initManualBookings({db,onSaved,isKnownContact=()=>false,getClientHistory=()=>'',getClosedReason=()=>null}) {
  const el=id=>document.getElementById(id);
  const form=el('manualForm'),fields=el('manualFields'),service=el('manualService'),day=el('manualDay'),time=el('manualTime'),submit=el('manualSubmit');
  const status=text=>{el('manualStatus').textContent=text};
@@ -51,6 +51,7 @@ export async function initManualBookings({db,onSaved,isKnownContact=()=>false,ge
   const serviceId=service.value,date=day.value,key=serviceId+'|'+date;
   placeholder('Escolha um serviço e um dia');
   if(!serviceId||!date)return;
+  const closed=getClosedReason(date);if(closed){placeholder('Dia encerrado');status('A Ana não trabalha neste dia: '+closed+'. Escolha outro dia.');return}
   status('A consultar horários disponíveis…');
   try{
    const {data,error}=await db.rpc('available_slots',{p_service:serviceId,p_day:date});

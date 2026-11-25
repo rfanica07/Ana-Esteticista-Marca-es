@@ -23,7 +23,7 @@ const db={from(){return {select(){return {order(){return {order:async()=>({data:
  creates.push({name,args});return creation.promise;
 }};
 let savedDay=null,savedContact=null,savedCalls=0,knownContact=false;
-const controller=await context.initManualBookings({db,isKnownContact:()=>knownContact,onSaved:async(day,contact)=>{savedDay=day;savedContact=contact;savedCalls++}});
+const controller=await context.initManualBookings({db,getClosedReason:day=>day==='2026-12-01'?'Feriado · Restauração da Independência':null,isKnownContact:()=>knownContact,onSaved:async(day,contact)=>{savedDay=day;savedContact=contact;savedCalls++}});
 assert.equal(elements.manualFields.disabled,false);
 assert.equal(elements.manualSubmit.disabled,true);
 elements.manualService.value='gel';elements.manualDay.value='2026-11-02';
@@ -88,3 +88,5 @@ assert.equal(elements.manualName.value,'Maria Costa');assert.equal(elements.manu
 assert.equal(elements.manualBooking.open,true);assert.equal(elements.manualService.focused,true);
 elements.manualNewClient.onclick();assert.equal(elements.manualName.value,'');assert.equal(elements.manualPhone.readOnly,false);assert.equal(elements.manualExistingFields.hidden,true);
 console.log('PASS: existing contact selection, phone search, refresh preservation, booking payload and contact shortcut');
+
+const beforeHoliday=waiting.length;elements.manualDay.value='2026-12-01';await elements.manualDay.onchange();assert.equal(waiting.length,beforeHoliday);assert.equal(elements.manualSubmit.disabled,true);assert.equal(elements.manualTime.disabled,true);assert.match(elements.manualStatus.textContent,/Feriado/);

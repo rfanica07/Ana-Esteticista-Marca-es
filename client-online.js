@@ -1,3 +1,4 @@
+import {closedDayReason} from './closure-calendar.js?v=20261125';
 import {db,bindLogin,recoveryLink,currentUser,message,registerWorker,enablePush,signOutDevice} from './backend.js?v=20261122-recovery';
 registerWorker().catch(()=>{});
 const notice=document.querySelector('.notice');
@@ -51,7 +52,7 @@ if(!db){
   if(request!==slotsRequest)return;
   if(error){message('slotHint','Não foi possível consultar a agenda. Tente novamente.');return}
   verifiedSelection=service+'|'+day;
-  message('slotHint',data.length?'Escolha um horário.':'Sem horários disponíveis neste dia.');
+  const closed=closedDayReason(day);message('slotHint',data.length?'Escolha um horário.':closed?'Dia encerrado: '+closed+'. Escolha outro dia.':'Sem horários disponíveis neste dia.');
   data.forEach(({slot})=>{const button=document.createElement('button');button.className='slot';button.textContent=slot;button.setAttribute('aria-pressed','false');button.onclick=()=>{time=slot;for(const other of document.querySelectorAll('.slot'))other.setAttribute('aria-pressed',String(other===button));summary()};document.getElementById('slots').append(button)});
  };
  async function loadMyBookings(){

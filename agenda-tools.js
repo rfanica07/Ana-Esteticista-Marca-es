@@ -1,3 +1,4 @@
+import {closedDayReason} from './closure-calendar.js?v=20261125';
 import {fullDate,hour,lisbonDay} from './agenda.js';
 const el=id=>document.getElementById(id);
 export function rescheduleControls({db,booking,onSaved}){
@@ -9,6 +10,7 @@ export function rescheduleControls({db,booking,onSaved}){
  const save=document.createElement('button');save.type='submit';save.textContent='Confirmar novo horário';save.className='primary';save.disabled=true;
  const status=document.createElement('p');status.setAttribute('role','status');let request=0,verified=null,busy=false;
  async function slots(){const current=++request;verified=null;save.disabled=true;time.disabled=true;time.replaceChildren();status.textContent='A consultar horários…';
+ const closed=closedDayReason(day.value);if(closed){status.textContent='Dia encerrado: '+closed+'. Escolha outro dia.';return}
  const {data,error}=await db.rpc('reschedule_slots',{p_id:booking.id,p_day:day.value});if(current!==request)return;
  if(error){status.textContent='Não foi possível consultar os horários. '+error.message;return}
  const first=document.createElement('option');first.value='';first.textContent=data.length?'Escolha a hora':'Sem horários disponíveis';time.append(first);
