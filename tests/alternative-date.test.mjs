@@ -1,2 +1,4 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {alternativeDateMessage} from '../alternative-date.js';
 test('alternative date message includes client, service, Lisbon date/time and app link without promising a new booking',()=>{const text=alternativeDateMessage({customer_name:'Maria',starts_at:'2027-07-01T09:00:00Z',services:{name:'Manicure'}});for(const part of ['Maria','Ana Esteticista 🌸','Manicure','10:00','1 de julho','https://ana-esteticista.pages.dev/','Responda a esta mensagem','depois de eu a confirmar'])assert.ok(text.includes(part),part)});
+
+test('alternative date text retains explicit wax and laser service names and emojis',()=>{for(const [category,prefix,emoji] of [['Cera','Depilação a cera','🍯'],['Laser','Depilação a laser','✨']]){const text=alternativeDateMessage({customer_name:'Maria',starts_at:'2027-07-01T09:00:00Z',services:{name:'Buço',category}});assert.ok(text.includes(prefix+' · Buço '+emoji))}});
