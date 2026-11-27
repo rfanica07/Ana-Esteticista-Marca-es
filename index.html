@@ -52,7 +52,7 @@ let category='Todos',selected=null,time=null;
 function today(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
 $('date').min=today();
 function renderServices(){
-$('filters').replaceChildren(...['Todos','Mãos','Pés','Rosto','Cera','Laser'].map(c=>{const b=document.createElement('button');b.className='filter'+(c===category?' active':'');b.textContent=c;b.setAttribute('aria-pressed',String(c===category));b.onclick=()=>{category=c;renderServices()};return b}));
+$('filters').replaceChildren(...['Mãos','Pés','Rosto','Cera','Laser','Todos'].map(c=>{const b=document.createElement('button');b.className='filter'+(c===category?' active':'');b.textContent=c==='Mãos'?'Manicure':c;b.setAttribute('aria-pressed',String(c===category));b.onclick=()=>{category=c;renderServices()};return b}));
 $('services').replaceChildren(...services.filter(s=>category==='Todos'||s.category===category).map(s=>{const b=document.createElement('button');b.className='service';b.setAttribute('aria-pressed',String(selected?.id===s.id));const name=document.createElement('span');name.textContent=s.name;const small=document.createElement('small');small.textContent=s.category+' · '+duration(s.minutes);name.append(small);const price=document.createElement('span');price.className='price';price.textContent=money(s.price);b.append(name,price);b.onclick=()=>{selected=s;time=null;$('result').textContent='Escolha um serviço, um dia e uma hora para preparar o pedido.';renderServices();renderSlots();summary()};return b}));
 }
 function availableSlots(day,minutes,now=new Date()){
