@@ -48,7 +48,7 @@ const $=id=>document.getElementById(id);
 const money=n=>new Intl.NumberFormat('pt-PT',{style:'currency',currency:'EUR'}).format(n);
 const duration=n=>n>=60?Math.floor(n/60)+' h'+(n%60?' '+n%60+' min':''):n+' min';
 const clock=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
-let category='Todos',selected=null,time=null;
+let category='Mãos',selected=null,time=null;
 function today(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
 $('date').min=today();
 function renderServices(){
